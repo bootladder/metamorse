@@ -1,0 +1,19 @@
+# metamorse keymap. Paths are space-separated Morse letters.
+#
+#   { sh  = "..." }   run a shell command, detached
+#   { key = "..." }   synthesize a chord, e.g. "ctrl+shift+t"
+#   { hint = "..." }  label a branch (a prefix with no action of its own)
+#
+# 'e' (a single dot) is deliberately unbound: a bare Meta tap must stay a
+# bare Meta tap. Binding it would break the passthrough contract.
+
+"t" = { sh = "x-terminal-emulator", hint = "terminal" }
+"b" = { sh = "xdg-open https://", hint = "browser" }
+
+"g"   = { hint = "git" }
+"g s" = { sh = "x-terminal-emulator -e git status", hint = "status" }
+"g l" = { sh = "x-terminal-emulator -e git log --oneline -20", hint = "log" }
+
+"w"   = { hint = "window" }
+"w c" = { key = "super+c", hint = "close" }
+"w m" = { key = "super+m", hint = "maximize" }

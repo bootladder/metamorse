@@ -68,11 +68,10 @@ class Session:
             self.observer.on_branch(letter, node)
             return replace(self, marks=(), node=node), (), None
         self.observer.on_dispatch(letter, node)
-        state, emits = self.passthrough.on_resolve(consumed=True)
+        state, emits = self.passthrough.on_resolve()
         return replace(self, marks=(), node=None, passthrough=state), emits, node
 
     def _reset(self, reason: str) -> tuple[Session, tuple[Emit, ...], Action | None]:
         self.observer.on_reset(reason)
-        consumed = self.node is not None or bool(self.marks[1:])
-        pt, emits = self.passthrough.on_resolve(consumed=consumed)
+        pt, emits = self.passthrough.on_resolve()
         return replace(self, marks=(), node=None, passthrough=pt), emits, None
