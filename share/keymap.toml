@@ -4,26 +4,63 @@
 #   { key = "..." }   synthesize a chord, e.g. "ctrl+shift+t"
 #   { hint = "..." }  label a branch (a prefix with no action of its own)
 #
-# Two letters are special:
+# TWO SPECIAL LETTERS
+#   e  (.)  a bare Meta tap. Permanently unbound so the tap passes through to
+#           whatever has focus. Never bind it.
+#   t  (-)  the gesture you hit by accident. Auto-bound to a popup listing
+#           every binding, so an accidental trigger costs nothing.
 #
-#   e  (.)  a single dot -- a bare Meta tap. Permanently unbound so the tap
-#           passes through to whatever has focus. Never bind it.
-#   t  (-)  a single dash -- the gesture you hit by accident. Bound
-#           automatically to a popup listing every binding, so an accidental
-#           trigger is free. Bind it yourself only if you want that slot back.
-#
-# Letters cost what they cost. Spend the short codes on what you use most:
-#   2 symbols  i(..) a(.-) n(-.) m(--)
-#   3 symbols  s u r w d k g o
-#   4 symbols  h v f l p j b x c y z q
+# COST -- spend short codes on what you use most
+#   2  i(..)  a(.-)  n(-.)  m(--)
+#   3  s(...) u(..-) r(.-.) w(.--) d(-..) k(-.-) g(--.) o(---)
+#   4  h v f l p j b x c y z q
 
-"a" = { sh = "x-terminal-emulator", hint = "terminal" }
-"n" = { sh = "xdg-open https://", hint = "browser" }
+# --- direct: the four cheapest slots ----------------------------------------
+
+"a" = { sh = "alacritty", hint = "terminal" }
+"n" = { sh = "firefox", hint = "browser" }
+"i" = { sh = "thunar", hint = "files" }
+
+# --- three-symbol singles ---------------------------------------------------
+
+"s" = { sh = "xfce4-screenshooter -r -c", hint = "screenshot region" }
+"k" = { sh = "xkill", hint = "kill a window" }
+"o" = { sh = "xfce4-appfinder", hint = "app finder" }
+
+# --- branches ---------------------------------------------------------------
+
+"m"   = { hint = "media & sound" }
+"m m" = { sh = "pavucontrol", hint = "mixer" }
+"m v" = { sh = "vlc", hint = "vlc" }
+"m u" = { sh = "amixer -q sset Master 5%+", hint = "volume up" }
+"m d" = { sh = "amixer -q sset Master 5%-", hint = "volume down" }
+"m t" = { sh = "amixer -q sset Master toggle", hint = "mute toggle" }
 
 "g"   = { hint = "git" }
-"g s" = { sh = "x-terminal-emulator -e git status", hint = "status" }
-"g l" = { sh = "x-terminal-emulator -e git log --oneline -20", hint = "log" }
+"g s" = { sh = "alacritty -e sh -c 'git status; read'", hint = "status" }
+"g l" = { sh = "alacritty -e sh -c 'git log --oneline -30; read'", hint = "log" }
+"g d" = { sh = "alacritty -e sh -c 'git diff; read'", hint = "diff" }
 
 "w"   = { hint = "window" }
-"w c" = { key = "super+c", hint = "close" }
-"w m" = { key = "super+m", hint = "maximize" }
+"w c" = { sh = "xdotool getactivewindow windowclose", hint = "close" }
+"w m" = { sh = "wmctrl -r :ACTIVE: -b toggle,maximized_vert,maximized_horz", hint = "maximize" }
+"w f" = { sh = "wmctrl -r :ACTIVE: -b toggle,fullscreen", hint = "fullscreen" }
+"w n" = { sh = "xdotool getactivewindow windowminimize", hint = "minimize" }
+
+"u"   = { hint = "urls" }
+"u g" = { sh = "xdg-open https://github.com", hint = "github" }
+"u m" = { sh = "xdg-open https://mail.google.com", hint = "mail" }
+"u c" = { sh = "xdg-open https://claude.ai", hint = "claude" }
+"u y" = { sh = "xdg-open https://news.ycombinator.com", hint = "hacker news" }
+
+"d"   = { hint = "desktop & system" }
+"d d" = { sh = "arandr", hint = "displays" }
+"d b" = { sh = "blueman-manager", hint = "bluetooth" }
+"d n" = { sh = "nm-connection-editor", hint = "network" }
+"d t" = { sh = "xfce4-taskmanager", hint = "task manager" }
+
+"r"   = { hint = "run & edit" }
+"r c" = { sh = "code", hint = "vs code" }
+"r e" = { sh = "emacs", hint = "emacs" }
+"r v" = { sh = "alacritty -e nvim", hint = "nvim" }
+"r d" = { sh = "discord", hint = "discord" }
