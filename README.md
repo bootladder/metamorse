@@ -60,10 +60,15 @@ a branch for the (not yet built) on-screen display.
 
     key = "leftmeta"    # any evdev key name; "capslock" is a common choice
     unit = 0.09         # seconds. dit=1u, dah=3u, char gap=3u, word gap=7u
+    hold = 2.0          # seconds to wait mid-sequence before giving up
     immediate = false   # release Meta-up instantly (see Timing)
 
 Decoding is reliable to about ±30% timing jitter. If you misfire often, raise
 `unit` — slower is more forgiving.
+
+`hold` is separate from Morse timing on purpose: it is how long a half-typed
+sequence like `g …` waits for its next letter. Morse's own word gap (7 units,
+~630ms) is far too brisk for a human deciding what to press next.
 
 ## Timing
 
@@ -88,6 +93,10 @@ If your WM binds a bare Meta *press* (some overlay keys do), set
 They are the whole correctness surface and they test without X11 or root:
 
     python3 -m unittest discover -s tests
+
+All timestamps come from one clock: evdev reports `CLOCK_REALTIME`, so idle
+ticks use `time.time()`. Mixing in `time.monotonic()` makes every gap read as
+enormous and floods the decoder with word gaps.
 
 `source.py` is the only module that touches hardware. `Observer` is the seam
 where feedback lands; `NullObserver` is four no-ops today.

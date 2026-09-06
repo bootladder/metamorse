@@ -35,6 +35,8 @@ class Session:
         return state, emits, None
 
     def tick(self, now: float) -> tuple[Session, tuple[Emit, ...], Action | None]:
+        if self._expired(now):
+            return self._reset("sequence timed out")
         demod, symbols = self.demod.tick(now)
         state = replace(self, demod=demod)
         emits: tuple[Emit, ...] = ()
@@ -45,8 +47,18 @@ class Session:
                 return state, emits, action
         return state, emits, None
 
+    def _expired(self, now: float) -> bool:
+        """A branch we have been sitting on for longer than `hold`."""
+        return (self.node is not None and not self.marks
+                and self.demod.since is not None
+                and now - self.demod.since >= self.timing.hold)
+
     def _absorb(self, symbol: Symbol) -> tuple[Session, tuple[Emit, ...], Action | None]:
         if symbol is Symbol.WORD_GAP:
+            if not self.marks and self.node is None:
+                return self, (), None          # idle silence, nothing to abandon
+            if self.node is not None and not self.marks:
+                return self, (), None          # mid-sequence: `hold` governs, not this
             return self._reset("word gap")
         if symbol is not Symbol.CHAR_GAP:
             return self._mark(symbol)

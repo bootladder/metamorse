@@ -13,7 +13,7 @@ CONFIG_DIR = CONFIG_HOME / "metamorse"
 KEYMAP = CONFIG_DIR / "keymap.toml"
 SETTINGS = CONFIG_DIR / "metamorse.toml"
 
-DEFAULTS = {"key": "leftmeta", "unit": 0.09, "immediate": False}
+DEFAULTS = {"key": "leftmeta", "unit": 0.09, "hold": 2.0, "immediate": False}
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,5 +26,6 @@ class Settings:
     def load(cls, path: Path = SETTINGS) -> Settings:
         raw = tomllib.loads(path.read_text()) if path.exists() else {}
         merged = {**DEFAULTS, **raw}
-        return cls(str(merged["key"]), Timing(float(merged["unit"])),
+        return cls(str(merged["key"]),
+                   Timing(float(merged["unit"]), float(merged["hold"])),
                    bool(merged["immediate"]))

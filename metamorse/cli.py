@@ -99,8 +99,10 @@ def _run(args, observer, make_dispatcher) -> int:
           f"unit={settings.timing.unit*1000:.0f}ms.  ctrl-c to stop.")
     stream = events(evdev, devices, key, TICK)
     try:
+        # time.time(), not monotonic: evdev timestamps are CLOCK_REALTIME
+        # and tick() compares against them directly.
         pump(_session(settings, keymap, observer), stream, sink, key,
-             make_dispatcher(sink), time.monotonic)
+             make_dispatcher(sink), time.time)
     except KeyboardInterrupt:
         print("\nstopped.")
     return 0

@@ -51,6 +51,46 @@ class TestDemod(unittest.TestCase):
         self.assertIn(Symbol.WORD_GAP, tuple(run(first + second)))
 
 
+class TestTick(unittest.TestCase):
+    """Idle-tick behaviour. Regression: ticks used a different clock from
+    edges, so every tick read as an enormous gap and spammed WORD_GAP."""
+
+    def idle(self, elapsed):
+        """A demod that saw a dit ending at t=0, then ticked `elapsed` later."""
+        from metamorse.demod import Demod
+        state = Demod()
+        for edge in edges(".")[0]:
+            state, _ = state.step(edge)
+        return state.tick(state.since + elapsed)
+
+    def test_reports_each_gap_once(self):
+        state, first = self.idle(3 * U)
+        self.assertEqual(first, (Symbol.CHAR_GAP,))
+        _, again = state.tick(state.since + 3.5 * U)
+        self.assertEqual(again, ())
+
+    def test_escalates_char_gap_to_word_gap(self):
+        state, _ = self.idle(3 * U)
+        _, later = state.tick(state.since + 8 * U)
+        self.assertEqual(later, (Symbol.WORD_GAP,))
+
+    def test_word_gap_reported_once(self):
+        state, _ = self.idle(8 * U)
+        _, again = state.tick(state.since + 20 * U)
+        self.assertEqual(again, ())
+
+    def test_no_gap_before_threshold(self):
+        _, out = self.idle(U)
+        self.assertEqual(out, ())
+
+    def test_new_edge_rearms_gap_reporting(self):
+        state, _ = self.idle(8 * U)
+        state, _ = state.step(Edge(True, state.since + 10 * U))
+        state, _ = state.step(Edge(False, state.since + U))
+        _, out = state.tick(state.since + 3 * U)
+        self.assertEqual(out, (Symbol.CHAR_GAP,))
+
+
 class TestDecode(unittest.TestCase):
     def test_letters(self):
         for code, letter in ((".-", "a"), ("...", "s"), ("-----", "0"), (".", "e")):
@@ -125,6 +165,21 @@ class TestPassthrough(unittest.TestCase):
         self.assertEqual(emits, (Emit.UP,))
 
 
+class RecordingObserver:
+    def __init__(self, resets):
+        self.resets = resets
+
+    def on_symbol(self, marks): pass
+    def on_branch(self, path, node): pass
+    def on_dispatch(self, path, node): pass
+    def on_reset(self, reason): self.resets.append(reason)
+
+
+def replace_observer(session, resets):
+    import dataclasses
+    return dataclasses.replace(session, observer=RecordingObserver(resets))
+
+
 class TestSession(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -170,6 +225,38 @@ class TestSession(unittest.TestCase):
         self.assertIsNone(action)
         self.assertIsNone(state.node)
         self.assertEqual(state.marks, ())
+
+    def test_idle_word_gap_is_silent(self):
+        """Regression: idle ticks spammed 'word gap' resets forever."""
+        state = self.session('"a" = { sh = "x" }')
+        resets = []
+        state = replace_observer(state, resets)
+        for n in range(1, 6):
+            state, _, _ = state.tick(n * 20 * U)
+        self.assertEqual(resets, [])
+
+    def test_letter_resolves_on_idle_tick(self):
+        """Regression: '.--' printed marks but never dispatched."""
+        state = self.session('"w" = { sh = "went" }')
+        stream, end = edges(".--")
+        for edge in stream:
+            state, _, _ = state.step(edge)
+        _, _, action = state.tick(end + 3 * U)
+        self.assertEqual(action, Action("sh", "went"))
+
+    def test_branch_survives_a_long_pause(self):
+        """A word gap must not abandon a pending sequence; `hold` governs."""
+        state = self.session('"g" = { hint = "git" }\n"g s" = { sh = "ok" }\n')
+        state, _, _ = self.drive(state, "--.")
+        self.assertIsNotNone(state.node)
+        state, _, _ = state.tick(state.demod.since + 1.0)     # under hold=2.0
+        self.assertIsNotNone(state.node)
+
+    def test_branch_expires_after_hold(self):
+        state = self.session('"g" = { hint = "git" }\n"g s" = { sh = "ok" }\n')
+        state, _, _ = self.drive(state, "--.")
+        state, _, _ = state.tick(state.demod.since + 2.5)     # over hold=2.0
+        self.assertIsNone(state.node)
 
     def test_impossible_prefix_resets_early(self):
         state, _, _ = self.drive(self.session('"a" = { sh = "x" }'), "......")

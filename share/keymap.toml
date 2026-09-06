@@ -7,6 +7,9 @@
 # 'e' (a single dot) is deliberately unbound: a bare Meta tap must stay a
 # bare Meta tap. Binding it would break the passthrough contract.
 
+# Single letters dispatch at once. A letter that is a prefix (g, w below)
+# waits for the next letter instead -- `hold` seconds, then gives up.
+
 "t" = { sh = "x-terminal-emulator", hint = "terminal" }
 "b" = { sh = "xdg-open https://", hint = "browser" }
 

@@ -22,8 +22,13 @@ class Edge:
 
 @dataclass(frozen=True, slots=True)
 class Timing:
-    """Morse durations derived from one unit. Dit=1u, dah=3u, gaps 1/3/7u."""
+    """Morse durations derived from one unit. Dit=1u, dah=3u, gaps 1/3/7u.
+
+    `hold` is not a Morse quantity: it is how long a partially-typed sequence
+    waits mid-branch before giving up, which is a UI decision, not a timing one.
+    """
     unit: float = 0.09
+    hold: float = 2.0
 
     @property
     def dah_min(self) -> float:
