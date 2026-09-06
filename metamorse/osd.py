@@ -42,38 +42,71 @@ def _status(keyed: str, stray: str) -> tuple[str, str]:
     return (keyed, LIVE) if keyed else ("key a letter", DIM)
 
 
-def _draw(frame, rows, path, keyed, stray, tk) -> None:
-    for child in frame.winfo_children():
-        child.destroy()
+FOOTER = "hold = dash · tap = dot · single tap (e) dismisses"
+POOL = 24               # rows built up front; more than any sane menu holds
 
-    where = " ".join(path.split()) if path else "root"
-    head = tk.Frame(frame, bg=BG)
-    head.grid(row=0, column=0, columnspan=3, sticky="we", pady=(0, 8))
-    tk.Label(head, text=f"metamorse · {where}", font=(MONO, 13, "bold"),
-             bg=BG, fg=ACCENT).pack(side="left")
-    text, colour = _status(keyed, stray)
-    tk.Label(head, text=text, font=(MONO, 13, "bold"),
-             bg=BG, fg=colour).pack(side="right")
 
-    for n, (letter, code, label, is_branch) in enumerate(rows, start=1):
-        state = _match(code, keyed)
-        code_fg, label_fg = _row_colors(state, is_branch)
-        marker = "▸" if state == "exact" else " "
-        tk.Label(frame, text=marker, font=(MONO, 12), bg=BG,
-                 fg=LIVE).grid(row=n, column=0, sticky="w")
-        tk.Label(frame, text=f"{code:<6}{letter}", font=(MONO, 12, "bold"),
-                 bg=BG, fg=code_fg).grid(row=n, column=1, sticky="w", padx=(2, 10))
-        tk.Label(frame, text=f"{'›' if is_branch else ' '} {label}",
-                 font=(MONO, 12), bg=BG, fg=label_fg).grid(row=n, column=2, sticky="w")
+class View:
+    """A fixed pool of widgets, built once. Redrawing sets text and colour on
+    existing labels -- destroying and reconstructing ~40 widgets per keystroke
+    was the dominant cost in showing a menu."""
 
-    tk.Label(frame, text="hold = dash · tap = dot · single tap (e) dismisses",
-             font=(MONO, 10), bg=BG, fg=DIM).grid(
-        row=len(rows) + 1, column=0, columnspan=3, sticky="w", pady=(9, 0))
+    def __init__(self, frame, tk):
+        self.tk = tk
+        self.where = tk.Label(frame, font=(MONO, 13, "bold"), bg=BG, fg=ACCENT,
+                              anchor="w")
+        self.where.grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 8))
+        self.status = tk.Label(frame, font=(MONO, 13, "bold"), bg=BG, fg=DIM,
+                               anchor="e")
+        self.status.grid(row=0, column=2, sticky="e", pady=(0, 8))
+
+        self.rows = [self._row(frame, n) for n in range(1, POOL + 1)]
+
+        self.footer = tk.Label(frame, text=FOOTER, font=(MONO, 10), bg=BG,
+                               fg=DIM, anchor="w")
+        self.footer.grid(row=POOL + 1, column=0, columnspan=3, sticky="w",
+                         pady=(9, 0))
+
+    def _row(self, frame, n):
+        marker = self.tk.Label(frame, font=(MONO, 12), bg=BG, fg=LIVE)
+        code = self.tk.Label(frame, font=(MONO, 12, "bold"), bg=BG, anchor="w")
+        label = self.tk.Label(frame, font=(MONO, 12), bg=BG, anchor="w")
+        marker.grid(row=n, column=0, sticky="w")
+        code.grid(row=n, column=1, sticky="w", padx=(2, 10))
+        label.grid(row=n, column=2, sticky="w")
+        return marker, code, label
+
+    def draw(self, rows, path, keyed, stray) -> None:
+        self.where.config(text=f"metamorse · {' '.join(path.split()) or 'root'}")
+        text, colour = _status(keyed, stray)
+        self.status.config(text=text, fg=colour)
+
+        for (marker, code_w, label_w), row in zip(self.rows, rows):
+            letter, code, label, is_branch = row
+            state = _match(code, keyed)
+            code_fg, label_fg = _row_colors(state, is_branch)
+            marker.config(text="▸" if state == "exact" else " ")
+            code_w.config(text=f"{code:<6}{letter}", fg=code_fg)
+            label_w.config(text=f"{'›' if is_branch else ' '} {label}", fg=label_fg)
+            for widget in (marker, code_w, label_w):
+                widget.grid()
+
+        for marker, code_w, label_w in self.rows[len(rows):]:
+            for widget in (marker, code_w, label_w):
+                widget.grid_remove()
 
 
 def _reader(queue):
-    """stdin on its own thread; a blocking read must never stall the UI."""
-    for line in sys.stdin:
+    """stdin on its own thread; a blocking read must never stall the UI.
+
+    readline() rather than `for line in sys.stdin`: iteration reads ahead into
+    a buffer and can withhold a complete line until more arrives, which on a
+    one-message-per-keystroke pipe means the message sits there unread.
+    """
+    while True:
+        line = sys.stdin.readline()
+        if not line:
+            break
         queue.put(line)
     queue.put(None)
 
@@ -94,14 +127,30 @@ def main() -> int:
     frame = tk.Frame(root, bg=BG, padx=16, pady=13,
                      highlightthickness=1, highlightbackground="#2e2e3a")
     frame.pack()
-    root.withdraw()                      # resident but unseen until asked
+    view = View(frame, tk)
+
+    # Stay mapped, parked off-screen. withdraw()/deiconify() unmaps the window,
+    # so the server drops it and the WM re-maps from nothing on every show;
+    # moving an already-rendered window is one request.
+    OFFSCREEN = 32000
+    root.geometry(f"+{OFFSCREEN}+{OFFSCREEN}")
+    shown = {"at": None}
 
     def place() -> None:
+        """Centre the window, recomputing its size only when the row count
+        changed. A layout pass per keystroke is this process's biggest cost."""
         root.update_idletasks()
-        w, h = root.winfo_width(), root.winfo_height()
-        x = (root.winfo_screenwidth() - w) // 2
-        y = int(root.winfo_screenheight() * 0.70) - h // 2
-        root.geometry(f"+{x}+{y}")
+        size = (root.winfo_width(), root.winfo_height())
+        x = (root.winfo_screenwidth() - size[0]) // 2
+        y = int(root.winfo_screenheight() * 0.70) - size[1] // 2
+        if shown["at"] != (x, y):
+            shown["at"] = (x, y)
+            root.geometry(f"+{x}+{y}")
+
+    def hide() -> None:
+        if shown["at"] is not None:
+            shown["at"] = None
+            root.geometry(f"+{OFFSCREEN}+{OFFSCREEN}")
 
     def poll() -> None:
         try:
@@ -113,18 +162,16 @@ def main() -> int:
                 if message.get("close"):
                     return root.destroy()
                 if message.get("hide"):
-                    root.withdraw()
+                    hide()
                     continue
-                _draw(frame, message["rows"], message.get("path", ""),
-                      message.get("keyed", ""), message.get("stray", ""), tk)
+                view.draw(message["rows"], message.get("path", ""),
+                          message.get("keyed", ""), message.get("stray", ""))
                 place()
-                root.deiconify()
-                root.lift()
         except queuelib.Empty:
             pass
-        root.after(5, poll)
+        root.after(4, poll)
 
-    root.after(5, poll)
+    root.after(4, poll)
     root.mainloop()
     return 0
 
