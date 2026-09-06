@@ -1,8 +1,8 @@
-"""The popup. Runs as its own process so tkinter's mainloop never blocks
-the event loop; talks over stdin so the daemon can update or dismiss it.
+"""The popup. Runs as its own process so tkinter's mainloop never blocks the
+event loop; talks over stdin so the daemon can update or dismiss it.
 
 Protocol, one JSON object per line:
-    {"rows": [[letter, code, label, is_branch], ...], "path": "t"}
+    {"rows": [[letter, code, label, is_branch], ...], "path": "m", "keyed": ".-"}
     {"close": true}
 """
 from __future__ import annotations
@@ -10,26 +10,55 @@ from __future__ import annotations
 import json
 import sys
 
-FONT = ("monospace", 13)
-BG, FG, DIM, ACCENT = "#1c1c22", "#e8e8ea", "#7a7a86", "#8fd0ff"
+MONO = "monospace"
+BG, FG = "#16161c", "#e8e8ea"
+DIM, ACCENT, LIVE, FADE = "#6a6a78", "#8fd0ff", "#ffd479", "#3a3a46"
 
 
-def _draw(frame, rows, path, tk):
+def _match(code: str, keyed: str) -> str:
+    """How a row relates to what has been keyed so far."""
+    if not keyed:
+        return "idle"
+    if code == keyed:
+        return "exact"
+    return "live" if code.startswith(keyed) else "dead"
+
+
+def _row_colors(state: str, is_branch: bool) -> tuple[str, str]:
+    """(code colour, label colour) for a row in the given match state."""
+    if state == "dead":
+        return FADE, FADE
+    if state in ("live", "exact"):
+        return LIVE, FG
+    return ACCENT, (DIM if is_branch else FG)
+
+
+def _draw(frame, rows, path, keyed, tk) -> None:
     for child in frame.winfo_children():
         child.destroy()
-    title = f"metamorse  {path}" if path else "metamorse"
-    tk.Label(frame, text=title, font=(FONT[0], FONT[1], "bold"),
-             bg=BG, fg=ACCENT, anchor="w").grid(row=0, column=0, columnspan=3,
-                                                sticky="w", pady=(0, 6))
+
+    where = " ".join(path.split()) if path else "root"
+    head = tk.Frame(frame, bg=BG)
+    head.grid(row=0, column=0, columnspan=3, sticky="we", pady=(0, 8))
+    tk.Label(head, text=f"metamorse · {where}", font=(MONO, 13, "bold"),
+             bg=BG, fg=ACCENT).pack(side="left")
+    tk.Label(head, text=keyed or "key a letter", font=(MONO, 13, "bold"),
+             bg=BG, fg=LIVE if keyed else DIM).pack(side="right")
+
     for n, (letter, code, label, is_branch) in enumerate(rows, start=1):
-        arrow = "…" if is_branch else "→"
-        tk.Label(frame, text=code, font=FONT, bg=BG, fg=ACCENT, anchor="w",
-                 width=7).grid(row=n, column=0, sticky="w")
-        tk.Label(frame, text=letter, font=(FONT[0], FONT[1], "bold"), bg=BG,
-                 fg=FG, width=2).grid(row=n, column=1)
-        tk.Label(frame, text=f"{arrow} {label}", font=FONT, bg=BG,
-                 fg=FG if not is_branch else DIM,
-                 anchor="w").grid(row=n, column=2, sticky="w", padx=(6, 0))
+        state = _match(code, keyed)
+        code_fg, label_fg = _row_colors(state, is_branch)
+        marker = "▸" if state == "exact" else " "
+        tk.Label(frame, text=marker, font=(MONO, 12), bg=BG,
+                 fg=LIVE).grid(row=n, column=0, sticky="w")
+        tk.Label(frame, text=f"{code:<6}{letter}", font=(MONO, 12, "bold"),
+                 bg=BG, fg=code_fg).grid(row=n, column=1, sticky="w", padx=(2, 10))
+        tk.Label(frame, text=f"{'›' if is_branch else ' '} {label}",
+                 font=(MONO, 12), bg=BG, fg=label_fg).grid(row=n, column=2, sticky="w")
+
+    tk.Label(frame, text="hold = dash · tap = dot · pause to commit",
+             font=(MONO, 10), bg=BG, fg=DIM).grid(
+        row=len(rows) + 1, column=0, columnspan=3, sticky="w", pady=(9, 0))
 
 
 def _reader(queue):
@@ -51,15 +80,16 @@ def main() -> int:
     root.title("metamorse")
     root.configure(bg=BG)
     root.attributes("-topmost", True)
-    root.overrideredirect(True)                  # no decorations
-    frame = tk.Frame(root, bg=BG, padx=14, pady=12)
+    root.overrideredirect(True)
+    frame = tk.Frame(root, bg=BG, padx=16, pady=13,
+                     highlightthickness=1, highlightbackground="#2e2e3a")
     frame.pack()
 
     def place() -> None:
         root.update_idletasks()
         w, h = root.winfo_width(), root.winfo_height()
         x = (root.winfo_screenwidth() - w) // 2
-        y = int(root.winfo_screenheight() * 0.72) - h // 2
+        y = int(root.winfo_screenheight() * 0.70) - h // 2
         root.geometry(f"+{x}+{y}")
 
     def poll() -> None:
@@ -71,13 +101,14 @@ def main() -> int:
                 message = json.loads(line)
                 if message.get("close"):
                     return root.destroy()
-                _draw(frame, message["rows"], message.get("path", ""), tk)
+                _draw(frame, message["rows"], message.get("path", ""),
+                      message.get("keyed", ""), tk)
                 place()
         except queuelib.Empty:
             pass
-        root.after(30, poll)
+        root.after(25, poll)
 
-    root.after(30, poll)
+    root.after(25, poll)
     root.mainloop()
     return 0
 
