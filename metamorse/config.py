@@ -13,7 +13,7 @@ CONFIG_DIR = CONFIG_HOME / "metamorse"
 KEYMAP = CONFIG_DIR / "keymap.toml"
 SETTINGS = CONFIG_DIR / "metamorse.toml"
 
-DEFAULTS = {"key": "leftmeta", "unit": 0.09, "hold": 2.0, "immediate": False}
+DEFAULTS = {"key": "leftmeta", "unit": 0.09, "hold": 10.0, "immediate": False}
 
 
 @dataclass(frozen=True, slots=True)

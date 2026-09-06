@@ -5,7 +5,7 @@ from dataclasses import dataclass, field, replace
 
 from .decode import decode, viable
 from .demod import Demod
-from .keymap import Action, Branch, Node
+from .keymap import HELP, Action, Branch, Node
 from .observer import NullObserver, Observer
 from .policy import Emit, Passthrough
 from .symbols import Edge, Symbol, Timing
@@ -22,6 +22,7 @@ class Session:
     passthrough: Passthrough = field(default_factory=Passthrough)
     marks: tuple[Symbol, ...] = ()
     node: Branch | None = None      # current trie position; None = at root
+    entered: str = ""               # the letter that opened `node`
 
     def step(self, edge: Edge) -> tuple[Session, tuple[Emit, ...], Action | None]:
         pt, emits = self.passthrough.on_edge(edge.down)
@@ -73,17 +74,23 @@ class Session:
         return replace(self, marks=marks), (), None
 
     def _advance(self, letter: str) -> tuple[Session, tuple[Emit, ...], Action | None]:
+        # Re-keying the help letter dismisses help. Scoped to help on purpose:
+        # a general "repeat backs out" rule would shadow bindings like `m m`.
+        if self.node is not None and letter == HELP == self.entered:
+            return self._reset("toggled shut")
         node = (self.node or self.keymap).children.get(letter)
         if node is None:
             return self._reset(f"unbound '{letter}'")
         if isinstance(node, Branch):
             self.observer.on_branch(letter, node)
-            return replace(self, marks=(), node=node), (), None
+            return replace(self, marks=(), node=node, entered=letter), (), None
         self.observer.on_dispatch(letter, node)
         state, emits = self.passthrough.on_resolve()
-        return replace(self, marks=(), node=None, passthrough=state), emits, node
+        return replace(self, marks=(), node=None, entered="",
+                       passthrough=state), emits, node
 
     def _reset(self, reason: str) -> tuple[Session, tuple[Emit, ...], Action | None]:
         self.observer.on_reset(reason)
         pt, emits = self.passthrough.on_resolve()
-        return replace(self, marks=(), node=None, passthrough=pt), emits, None
+        return replace(self, marks=(), node=None, entered="",
+                       passthrough=pt), emits, None

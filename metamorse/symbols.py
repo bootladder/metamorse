@@ -28,7 +28,7 @@ class Timing:
     waits mid-branch before giving up, which is a UI decision, not a timing one.
     """
     unit: float = 0.09
-    hold: float = 2.0
+    hold: float = 10.0
 
     @property
     def dah_min(self) -> float:

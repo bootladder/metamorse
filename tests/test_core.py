@@ -249,13 +249,13 @@ class TestSession(unittest.TestCase):
         state = self.session('"g" = { hint = "git" }\n"g s" = { sh = "ok" }\n')
         state, _, _ = self.drive(state, "--.")
         self.assertIsNotNone(state.node)
-        state, _, _ = state.tick(state.demod.since + 1.0)     # under hold=2.0
+        state, _, _ = state.tick(state.demod.since + 5.0)     # under hold
         self.assertIsNotNone(state.node)
 
     def test_branch_expires_after_hold(self):
         state = self.session('"g" = { hint = "git" }\n"g s" = { sh = "ok" }\n')
         state, _, _ = self.drive(state, "--.")
-        state, _, _ = state.tick(state.demod.since + 2.5)     # over hold=2.0
+        state, _, _ = state.tick(state.demod.since + 12.0)    # over hold
         self.assertIsNone(state.node)
 
     def test_impossible_prefix_resets_early(self):
