@@ -31,12 +31,18 @@ class PopupObserver:
         except (BrokenPipeError, ValueError):
             self.process = None
 
-    def _open(self) -> None:
+    def start(self) -> None:
+        """Spawn the popup process up front and leave it hidden. Paying
+        interpreter startup once at boot keeps the first menu as fast as the
+        hundredth."""
         if self.process is not None and self.process.poll() is None:
             return
         self.process = subprocess.Popen(
             [sys.executable, "-m", "metamorse.osd"],
             stdin=subprocess.PIPE, text=True)
+
+    def _open(self) -> None:
+        self.start()                     # no-op once running
 
     def _show(self, branch: Branch, path: str, keyed: str = "") -> None:
         self._open()
@@ -46,8 +52,11 @@ class PopupObserver:
                              for r in rows(branch)]})
 
     def close(self) -> None:
-        self._send({"close": True})
+        self._send({"hide": True})       # hide, never destroy
         self.path, self.branch = "", None
+
+    def stop(self) -> None:
+        self._send({"close": True})
 
     # Observer protocol ---------------------------------------------------
     def on_symbol(self, marks) -> None:

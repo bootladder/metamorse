@@ -13,7 +13,7 @@ from .policy import Emit
 from .session import Session
 from .symbols import Edge
 
-TICK = 0.02          # resolution of the trailing-gap check
+TICK = 0.005         # resolution of the trailing-gap check
 
 
 def require_evdev():

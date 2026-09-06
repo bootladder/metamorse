@@ -31,3 +31,11 @@ def code_for(letter: str) -> str:
 def viable(marks: tuple[Symbol, ...]) -> bool:
     """Whether these marks can still grow into a valid code."""
     return "".join(m.value for m in marks) in PREFIXES
+
+
+def extensions(marks: tuple[Symbol, ...]) -> int:
+    """How many longer codes share these marks as a prefix. Zero means the
+    letter is already unambiguous and need not wait for a character gap."""
+    code = "".join(m.value for m in marks)
+    return sum(1 for other in LETTERS
+               if other.startswith(code) and other != code)

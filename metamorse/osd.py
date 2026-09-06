@@ -3,7 +3,8 @@ event loop; talks over stdin so the daemon can update or dismiss it.
 
 Protocol, one JSON object per line:
     {"rows": [[letter, code, label, is_branch], ...], "path": "m", "keyed": ".-"}
-    {"close": true}
+    {"hide": true}     withdraw, stay resident
+    {"close": true}    exit
 """
 from __future__ import annotations
 
@@ -84,6 +85,7 @@ def main() -> int:
     frame = tk.Frame(root, bg=BG, padx=16, pady=13,
                      highlightthickness=1, highlightbackground="#2e2e3a")
     frame.pack()
+    root.withdraw()                      # resident but unseen until asked
 
     def place() -> None:
         root.update_idletasks()
@@ -101,14 +103,19 @@ def main() -> int:
                 message = json.loads(line)
                 if message.get("close"):
                     return root.destroy()
+                if message.get("hide"):
+                    root.withdraw()
+                    continue
                 _draw(frame, message["rows"], message.get("path", ""),
                       message.get("keyed", ""), tk)
                 place()
+                root.deiconify()
+                root.lift()
         except queuelib.Empty:
             pass
-        root.after(25, poll)
+        root.after(5, poll)
 
-    root.after(25, poll)
+    root.after(5, poll)
     root.mainloop()
     return 0
 

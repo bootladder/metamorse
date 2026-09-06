@@ -98,13 +98,21 @@ def _run(args, make_observer, make_dispatcher) -> int:
     print(f"metamorse: {settings.key} on {len(devices)} device(s), "
           f"unit={settings.timing.unit*1000:.0f}ms.  ctrl-c to stop.")
     stream = events(evdev, devices, key, TICK)
+    observer = make_observer(args, keymap)
+    starter = getattr(observer, "start", None)
+    if starter:
+        starter()            # pay GUI startup now, not on the first menu
     try:
         # time.time(), not monotonic: evdev timestamps are CLOCK_REALTIME
         # and tick() compares against them directly.
-        pump(_session(settings, keymap, make_observer(args, keymap)),
+        pump(_session(settings, keymap, observer),
              stream, sink, key, make_dispatcher(sink), time.time)
     except KeyboardInterrupt:
         print("\nstopped.")
+    finally:
+        stopper = getattr(observer, "stop", None)
+        if stopper:
+            stopper()
     return 0
 
 

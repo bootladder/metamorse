@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 
-from .decode import decode, viable
+from .decode import decode, extensions, viable
 from .demod import Demod
 from .keymap import HELP, Action, Branch, Node
 from .observer import NullObserver, Observer
@@ -71,7 +71,23 @@ class Session:
         if not viable(marks):
             return self._reset("not a prefix")
         self.observer.on_symbol(marks)
-        return replace(self, marks=marks), (), None
+        state = replace(self, marks=marks)
+        return state._settled() or (state, (), None)
+
+    def _settled(self):
+        """Open a menu without waiting for the character gap, when waiting
+        cannot change the outcome: the marks spell exactly one letter and that
+        letter is a branch. Actions still wait -- firing a command early on a
+        code the user meant to extend is unrecoverable; a menu is not."""
+        if extensions(self.marks):
+            return None
+        letter = decode(self.marks)
+        if letter is None:
+            return None
+        node = (self.node or self.keymap).children.get(letter)
+        if not isinstance(node, Branch):
+            return None
+        return self._advance(letter)
 
     def _advance(self, letter: str) -> tuple[Session, tuple[Emit, ...], Action | None]:
         # Re-keying the help letter dismisses help. Scoped to help on purpose:
