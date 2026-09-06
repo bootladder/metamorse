@@ -172,6 +172,7 @@ class RecordingObserver:
     def on_symbol(self, marks): pass
     def on_branch(self, path, node): pass
     def on_dispatch(self, path, node): pass
+    def on_stray(self, letter, node): pass
     def on_reset(self, reason): self.resets.append(reason)
 
 

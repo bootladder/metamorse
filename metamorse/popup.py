@@ -44,10 +44,11 @@ class PopupObserver:
     def _open(self) -> None:
         self.start()                     # no-op once running
 
-    def _show(self, branch: Branch, path: str, keyed: str = "") -> None:
+    def _show(self, branch: Branch, path: str, keyed: str = "",
+              stray: str = "") -> None:
         self._open()
         self.path, self.branch = path, branch
-        self._send({"path": path, "keyed": keyed,
+        self._send({"path": path, "keyed": keyed, "stray": stray,
                     "rows": [[r.letter, r.code, r.label, r.is_branch]
                              for r in rows(branch)]})
 
@@ -71,6 +72,12 @@ class PopupObserver:
 
     def on_dispatch(self, path: str, node: Node) -> None:
         self.close()
+
+    def on_stray(self, letter: str, node: Node) -> None:
+        """Wrong letter for this menu. Redraw it, say so, stay open."""
+        if self.branch is None:
+            return
+        self._show(self.branch, self.path, stray=letter)
 
     def on_reset(self, reason: str) -> None:
         self.close()

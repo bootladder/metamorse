@@ -5,7 +5,7 @@ from dataclasses import dataclass, field, replace
 
 from .decode import decode, extensions, viable
 from .demod import Demod
-from .keymap import HELP, Action, Branch, Node
+from .keymap import DISMISS, Action, Branch, Node
 from .observer import NullObserver, Observer
 from .policy import Emit, Passthrough
 from .symbols import Edge, Symbol, Timing
@@ -90,12 +90,10 @@ class Session:
         return self._advance(letter)
 
     def _advance(self, letter: str) -> tuple[Session, tuple[Emit, ...], Action | None]:
-        # Re-keying the help letter dismisses help. Scoped to help on purpose:
-        # a general "repeat backs out" rule would shadow bindings like `m m`.
-        if self.node is not None and letter == HELP == self.entered:
-            return self._reset("toggled shut")
         node = (self.node or self.keymap).children.get(letter)
         if node is None:
+            if self.node is not None and letter != DISMISS:
+                return self._stay(letter)     # mistype: keep the menu up
             return self._reset(f"unbound '{letter}'")
         if isinstance(node, Branch):
             self.observer.on_branch(letter, node)
@@ -104,6 +102,13 @@ class Session:
         state, emits = self.passthrough.on_resolve()
         return replace(self, marks=(), node=None, entered="",
                        passthrough=state), emits, node
+
+    def _stay(self, letter: str) -> tuple[Session, tuple[Emit, ...], Action | None]:
+        """A letter that means nothing here. Clear the marks but hold the menu
+        open -- a mistype should cost a retry, not your place in the tree."""
+        self.observer.on_stray(letter, self.node)
+        pt, emits = self.passthrough.on_resolve()
+        return replace(self, marks=(), passthrough=pt), emits, None
 
     def _reset(self, reason: str) -> tuple[Session, tuple[Emit, ...], Action | None]:
         self.observer.on_reset(reason)

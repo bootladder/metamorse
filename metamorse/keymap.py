@@ -11,6 +11,8 @@ ACTIONS = ("sh", "key", "nop")
 HELP = "t"          # a single dash: the cheapest gesture, so the safest one
 HELP_HINT = "help -- all bindings"
 
+DISMISS = "e"       # a bare tap: already reserved, so it collides with nothing
+
 
 @dataclass(frozen=True, slots=True)
 class Action:

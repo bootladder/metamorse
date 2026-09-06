@@ -14,6 +14,7 @@ import sys
 MONO = "monospace"
 BG, FG = "#16161c", "#e8e8ea"
 DIM, ACCENT, LIVE, FADE = "#6a6a78", "#8fd0ff", "#ffd479", "#3a3a46"
+WARN = "#ff8f8f"
 
 
 def _match(code: str, keyed: str) -> str:
@@ -34,7 +35,14 @@ def _row_colors(state: str, is_branch: bool) -> tuple[str, str]:
     return ACCENT, (DIM if is_branch else FG)
 
 
-def _draw(frame, rows, path, keyed, tk) -> None:
+def _status(keyed: str, stray: str) -> tuple[str, str]:
+    """(text, colour) for the header's right side."""
+    if stray:
+        return f"'{stray}' not here", WARN
+    return (keyed, LIVE) if keyed else ("key a letter", DIM)
+
+
+def _draw(frame, rows, path, keyed, stray, tk) -> None:
     for child in frame.winfo_children():
         child.destroy()
 
@@ -43,8 +51,9 @@ def _draw(frame, rows, path, keyed, tk) -> None:
     head.grid(row=0, column=0, columnspan=3, sticky="we", pady=(0, 8))
     tk.Label(head, text=f"metamorse · {where}", font=(MONO, 13, "bold"),
              bg=BG, fg=ACCENT).pack(side="left")
-    tk.Label(head, text=keyed or "key a letter", font=(MONO, 13, "bold"),
-             bg=BG, fg=LIVE if keyed else DIM).pack(side="right")
+    text, colour = _status(keyed, stray)
+    tk.Label(head, text=text, font=(MONO, 13, "bold"),
+             bg=BG, fg=colour).pack(side="right")
 
     for n, (letter, code, label, is_branch) in enumerate(rows, start=1):
         state = _match(code, keyed)
@@ -57,7 +66,7 @@ def _draw(frame, rows, path, keyed, tk) -> None:
         tk.Label(frame, text=f"{'›' if is_branch else ' '} {label}",
                  font=(MONO, 12), bg=BG, fg=label_fg).grid(row=n, column=2, sticky="w")
 
-    tk.Label(frame, text="hold = dash · tap = dot · pause to commit",
+    tk.Label(frame, text="hold = dash · tap = dot · single tap (e) dismisses",
              font=(MONO, 10), bg=BG, fg=DIM).grid(
         row=len(rows) + 1, column=0, columnspan=3, sticky="w", pady=(9, 0))
 
@@ -107,7 +116,7 @@ def main() -> int:
                     root.withdraw()
                     continue
                 _draw(frame, message["rows"], message.get("path", ""),
-                      message.get("keyed", ""), tk)
+                      message.get("keyed", ""), message.get("stray", ""), tk)
                 place()
                 root.deiconify()
                 root.lift()

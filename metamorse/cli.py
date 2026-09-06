@@ -82,6 +82,9 @@ class TapObserver:
     def on_dispatch(self, path, node):
         print(f"\r  {path}  ->  {node.kind}: {node.arg}")
 
+    def on_stray(self, letter, node):
+        print(f"\r  ??  '{letter}' not in this menu")
+
     def on_reset(self, reason):
         print(f"\r  --  {reason}")
 
