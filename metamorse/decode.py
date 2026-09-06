@@ -23,6 +23,11 @@ def decode(marks: tuple[Symbol, ...]) -> str | None:
     return LETTERS.get("".join(m.value for m in marks))
 
 
+def code_for(letter: str) -> str:
+    """The Morse code for a letter, for display."""
+    return _CODE.get(letter, "?")
+
+
 def viable(marks: tuple[Symbol, ...]) -> bool:
     """Whether these marks can still grow into a valid code."""
     return "".join(m.value for m in marks) in PREFIXES

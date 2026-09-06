@@ -8,6 +8,9 @@ from typing import Union
 
 ACTIONS = ("sh", "key", "nop")
 
+HELP = "t"          # a single dash: the cheapest gesture, so the safest one
+HELP_HINT = "help -- all bindings"
+
 
 @dataclass(frozen=True, slots=True)
 class Action:
@@ -62,4 +65,15 @@ def load(path: Path) -> Branch:
             raise ValueError(f"{seq}: duplicate binding")
         else:
             level[last] = action
-    return Branch("", root)
+    return Branch("", with_help(root))
+
+
+def with_help(root: dict[str, Node]) -> dict[str, Node]:
+    """Bind `t` to a branch listing everything, unless the user bound it.
+
+    `t` is one dash -- the gesture you hit by accident. Pointing it at a menu
+    makes an accidental trigger free: it shows, then times out, doing nothing.
+    """
+    if HELP in root:
+        return root
+    return {**root, HELP: Branch(HELP_HINT, root)}

@@ -86,7 +86,7 @@ class TapObserver:
         print(f"\r  --  {reason}")
 
 
-def _run(args, observer, make_dispatcher) -> int:
+def _run(args, make_observer, make_dispatcher) -> int:
     evdev = require_evdev()
     settings = config.Settings.load()
     keymap = load(config.KEYMAP)
@@ -101,23 +101,30 @@ def _run(args, observer, make_dispatcher) -> int:
     try:
         # time.time(), not monotonic: evdev timestamps are CLOCK_REALTIME
         # and tick() compares against them directly.
-        pump(_session(settings, keymap, observer), stream, sink, key,
-             make_dispatcher(sink), time.time)
+        pump(_session(settings, keymap, make_observer(args, keymap)),
+             stream, sink, key, make_dispatcher(sink), time.time)
     except KeyboardInterrupt:
         print("\nstopped.")
     return 0
 
 
+def _observer(args, keymap):
+    if args.no_popup:
+        return NullObserver()
+    from .popup import PopupObserver
+    return PopupObserver(keymap)
+
+
 def cmd_run(args) -> int:
     def live(sink) -> Dispatcher:
         return Dispatcher(shell, lambda chord: sink.chord(*parse_chord(chord)))
-    return _run(args, NullObserver(), live)
+    return _run(args, _observer, live)
 
 
 def cmd_tap(args) -> int:
     """Decode and print, but never execute. For tuning `unit`."""
     noop = Dispatcher(lambda cmd: None, lambda chord: None)
-    return _run(args, TapObserver(), lambda sink: noop)
+    return _run(args, lambda a, k: TapObserver(), lambda sink: noop)
 
 
 def main(argv=None) -> int:
@@ -132,9 +139,14 @@ def main(argv=None) -> int:
     subs.add_parser("doctor", help="check the system can run metamorse"
                     ).set_defaults(fn=cmd_doctor)
     subs.add_parser("keys", help="print the keymap").set_defaults(fn=cmd_keys)
-    subs.add_parser("run", help="start the daemon").set_defaults(fn=cmd_run)
-    subs.add_parser("tap", help="decode to stdout without dispatching"
-                    ).set_defaults(fn=cmd_tap)
+    run_cmd = subs.add_parser("run", help="start the daemon")
+    run_cmd.add_argument("--no-popup", action="store_true",
+                         help="suppress the on-screen menu")
+    run_cmd.set_defaults(fn=cmd_run)
+
+    tap = subs.add_parser("tap", help="decode to stdout without dispatching")
+    tap.add_argument("--no-popup", action="store_true", help=argparse.SUPPRESS)
+    tap.set_defaults(fn=cmd_tap)
 
     args = parser.parse_args(argv)
     return args.fn(args)
