@@ -10,7 +10,7 @@ import subprocess
 import sys
 from dataclasses import dataclass, field
 
-from .keymap import Branch, Node
+from ..core.keymap import Branch, Node
 from .render import rows
 
 
@@ -38,7 +38,7 @@ class PopupObserver:
         if self.process is not None and self.process.poll() is None:
             return
         self.process = subprocess.Popen(
-            [sys.executable, "-m", "metamorse.osd"],
+            [sys.executable, "-m", "metamorse.ui.osd"],
             stdin=subprocess.PIPE, text=True)
 
     def _open(self) -> None:

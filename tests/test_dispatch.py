@@ -4,8 +4,8 @@ import unittest
 from pathlib import Path
 
 from metamorse import config
-from metamorse.dispatch import Dispatcher, parse_chord
-from metamorse.keymap import Action, load
+from metamorse.core.dispatch import Dispatcher, parse_chord
+from metamorse.core.keymap import Action, load
 
 
 class TestParseChord(unittest.TestCase):

@@ -6,12 +6,9 @@ from __future__ import annotations
 
 import select
 from dataclasses import dataclass
-from typing import Callable, Iterator
+from typing import Iterator
 
-from .keymap import Action
-from .policy import Emit
-from .session import Session
-from .symbols import Edge
+from ..core.symbols import Edge
 
 TICK = 0.005         # resolution of the trailing-gap check
 
@@ -92,17 +89,3 @@ def events(evdev, devices: list, key: int, timeout: float) -> Iterator[Edge | No
                 if event.type == evdev.ecodes.EV_KEY and event.code == key:
                     if event.value != 2:            # ignore autorepeat
                         yield Edge(bool(event.value), event.timestamp())
-
-
-def pump(session: Session, stream, sink: Sink, key: int,
-         run: Callable[[Action], None], clock) -> None:
-    """Drive the session. Emits go to the sink; actions go to `run`."""
-    for edge in stream:
-        if edge is None:
-            session, emits, action = session.tick(clock())
-        else:
-            session, emits, action = session.step(edge)
-        for emit in emits:
-            sink.emit(key, emit is Emit.DOWN)
-        if action:
-            run(action)

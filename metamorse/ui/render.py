@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .decode import code_for
-from .keymap import Action, Branch, Node
+from ..core.decode import code_for
+from ..core.keymap import Action, Branch, Node
 
 
 @dataclass(frozen=True, slots=True)

@@ -3,12 +3,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from metamorse.decode import decode, viable
-from metamorse.demod import run
-from metamorse.keymap import Action, load
-from metamorse.policy import Emit, Passthrough
-from metamorse.session import Session
-from metamorse.symbols import Edge, Symbol, Timing
+from metamorse.core.decode import decode, viable
+from metamorse.core.demod import run
+from metamorse.core.keymap import Action, load
+from metamorse.core.policy import Emit, Passthrough
+from metamorse.core.session import Session
+from metamorse.core.symbols import Edge, Symbol, Timing
 
 U = Timing().unit
 
@@ -57,7 +57,7 @@ class TestTick(unittest.TestCase):
 
     def idle(self, elapsed):
         """A demod that saw a dit ending at t=0, then ticked `elapsed` later."""
-        from metamorse.demod import Demod
+        from metamorse.core.demod import Demod
         state = Demod()
         for edge in edges(".")[0]:
             state, _ = state.step(edge)
