@@ -8,6 +8,7 @@ BIN="$PREFIX/bin/metamorse"
 SRC="$(cd "$(dirname "$0")" && pwd)"
 CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/metamorse"
 RULE=/etc/udev/rules.d/99-metamorse.rules
+UNIT="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/metamorse.service"
 
 ASSUME_YES=${ASSUME_YES:-0}
 
@@ -26,9 +27,16 @@ ask() {
 uninstall() {
     say "This removes:"
     say "  $BIN"
+    say "  $UNIT  (stopped and disabled first)"
     say "  $RULE            (needs sudo)"
     say "  $CONFIG/  -- your keymap, KEPT unless you delete it yourself"
     ask "Proceed?" || exit 0
+    if [ -f "$UNIT" ]; then
+        systemctl --user disable --now metamorse.service 2>/dev/null || true
+        rm -f "$UNIT"
+        systemctl --user daemon-reload 2>/dev/null || true
+        say "removed $UNIT"
+    fi
     rm -f "$BIN" && say "removed $BIN"
     [ -f "$RULE" ] && sudo rm -f "$RULE" && sudo udevadm control --reload-rules
     say "done. config left at $CONFIG"
@@ -66,8 +74,14 @@ FOOTPRINT -- everything this touches:
 
   4. Group membership: adds you to 'input' if needed (sudo, needs re-login).
 
-NOT touched: no systemd unit, no autostart, no shell rc, no system python,
-no files outside the three paths above. Runs only when you start it.
+  5. $UNIT
+     A systemd *user* unit, enabled so metamorse starts with your graphical
+     session. No root: it runs as you, bound to graphical-session.target
+     because the popup and the synthesized chords both need a display.
+     Decline and nothing is written; start it yourself with 'metamorse run'.
+
+NOT touched: no system-wide unit, no shell rc, no system python, no files
+outside the paths above.
 
 Dependencies: python 3.11+ and python-evdev (from your distro's packages).
 
@@ -120,6 +134,13 @@ elif ask "Add ${USER:-$(id -un)} to the 'input' group? (needs sudo, then re-logi
     fi
 fi
 
+# 5. systemd user unit -- written by the CLI, so the unit lives in one place
+if ask "Install and enable the systemd user unit at $UNIT?"; then
+    "$BIN" service enable || say "could not enable -- 'metamorse logs' for why"
+else
+    say "skipped -- run 'metamorse service enable' later, or just 'metamorse run'"
+fi
+
 cat <<EOF
 
 done.
@@ -127,7 +148,8 @@ done.
   metamorse doctor   check everything is ready
   metamorse keys     show your keymap
   metamorse tap      watch decoding live, dispatching nothing
-  metamorse run      start it
+  metamorse logs     the running daemon's output
+  metamorse run      start it in this terminal
 
 If '$BIN' is not found, add $PREFIX/bin to your PATH.
 EOF

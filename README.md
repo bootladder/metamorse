@@ -25,21 +25,37 @@ It prints its full footprint and asks before each step. `--yes` to accept all,
 |---|---|
 | `~/.local/bin/metamorse` | 3-line launcher pointing at this checkout |
 | `~/.config/metamorse/keymap.toml` | your keymap; never overwritten |
+| `~/.config/metamorse/tone.toml` | tone settings, if you use `tune` |
+| `~/.config/systemd/user/metamorse.service` | user unit, enabled to start with your graphical session (optional) |
 | `/etc/udev/rules.d/99-metamorse.rules` | `input` group access to `/dev/uinput` (sudo, optional) |
 | `input` group membership | needed to read the keyboard (sudo, optional) |
 
-No systemd unit, no autostart, no shell rc edits, no system python changes,
-nothing copied outside those paths. It runs only when you start it.
+No system-wide unit, no shell rc edits, no system python changes, nothing
+copied outside those paths.
+
+The unit is a *user* unit bound to `graphical-session.target`, not a system
+one: the popup and the synthesized chords both need a display, so starting at
+boot would only fail and retry. Decline it and metamorse runs when you say so.
+
+    metamorse service enable    install the unit and start it at login
+    metamorse service remove    stop it and delete the unit
+    metamorse logs [-f]         what the daemon is saying
 
 **Dependencies:** python 3.11+ and `python-evdev` from your distro
 (`apt install python3-evdev`). Nothing from pip; no virtualenv.
+
+Keying with a guitar instead (`metamorse listen`) additionally needs numpy and
+sounddevice. That input is optional and self-contained: without those packages
+the tone commands simply do nothing you would notice, and `metamorse run`
+never imports them.
 
 ## Use
 
     metamorse doctor   check the system is ready; prints a fix for each failure
     metamorse keys     print the keymap as a tree
     metamorse tap      decode to stdout, dispatching nothing — tune timing here
-    metamorse run      start it
+    metamorse run      start it in this terminal
+    metamorse logs     what the daemon under systemd is saying
 
 Start with `tap`. It shows what you're actually keying without running
 anything, which is how you find your `unit`.
@@ -63,6 +79,10 @@ a branch for the (not yet built) on-screen display.
     hold = 2.0          # seconds to wait mid-sequence before giving up
     immediate = false   # release Meta-up instantly (see Timing)
 
+`~/.config/metamorse/tone.toml` — only if you key with a guitar. Written by
+`metamorse tune`, which measures the gate threshold from you actually playing;
+it cannot be guessed, since it depends on the guitar, the mic and the gain.
+
 Decoding is reliable to about ±30% timing jitter. If you misfire often, raise
 `unit` — slower is more forgiving.
 
@@ -83,27 +103,44 @@ If your WM binds a bare Meta *press* (some overlay keys do), set
 
 ## Architecture
 
-    evdev ─→ Demod ─→ Decode ─→ Session ─→ Dispatch ─→ sh / uinput chord
-               │         │         │
-               └─────────┴─────────┴──→ Observer  (NullObserver today, OSD later)
+    metamorse/
+      core/     the correctness surface — pure, no I/O, no display, no device
+      inputs/   key.py (evdev), tone/ (guitar, optional)
+      ui/       the on-screen menu
+      cli.py    argparse wiring and one run path
+
+    Input ─→ Demod ─→ Decode ─→ Session ─→ Dispatch ─→ sh / uinput chord
+                │        │         │
+                └────────┴─────────┴──→ Observer ──→ OSD
                          │
               Passthrough policy ──→ uinput (replays the real meta key)
 
-`demod`, `decode`, `keymap`, `policy` are pure — no I/O, no display, no device.
-They are the whole correctness surface and they test without X11 or root:
+The arrows run one way. `core/` imports neither `inputs/` nor `ui/`, so the
+whole decoding path tests without X11, audio or root:
 
     python3 -m unittest discover -s tests
 
-All timestamps come from one clock: evdev reports `CLOCK_REALTIME`, so idle
-ticks use `time.time()`. Mixing in `time.monotonic()` makes every gap read as
+**Inputs.** An input is anything that produces key edges. `inputs.Input`
+bundles a stream with its sink, clock and timing; openers register by name and
+are imported only when asked for, which is why running on the meta key never
+imports numpy. Adding an input means writing an opener and registering it —
+no other file changes.
+
+The clock travels *with* the stream because each source owns its timebase:
+evdev stamps `CLOCK_REALTIME` while audio counts samples, and `Demod` requires
+edges and idle ticks to share one. Mixing them makes every gap read as
 enormous and floods the decoder with word gaps.
 
-`source.py` is the only module that touches hardware. `Observer` is the seam
-where feedback lands; `NullObserver` is four no-ops today.
+**Feedback.** `Observer` is the seam the OSD implements. The popup runs as its
+own process so tkinter's mainloop never blocks the event loop, and it is
+spawned at start and parked off-screen rather than mapped and unmapped per
+menu — the window manager re-mapping from nothing was the dominant cost of
+showing a menu.
 
 ## Status
 
-Working: capture, demodulation, decoding, trie dispatch, passthrough, CLI,
-installer. Not built: the on-screen display (stubbed at the `Observer`
-protocol), and Wayland — evdev capture is compositor-agnostic, but synthesized
+Working: capture, demodulation, decoding, trie dispatch, passthrough, the
+on-screen menu, tone input, the CLI, the installer and the systemd unit.
+
+Not built: Wayland — evdev capture is compositor-agnostic, but synthesized
 chords still go through uinput and depend on the compositor accepting them.
