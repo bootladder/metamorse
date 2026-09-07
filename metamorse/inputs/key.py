@@ -5,10 +5,12 @@ evdev is imported lazily so the pure core and `doctor` work without it.
 from __future__ import annotations
 
 import select
+import time
 from dataclasses import dataclass
 from typing import Iterator
 
 from ..core.symbols import Edge
+from . import Input, register
 
 TICK = 0.005         # resolution of the trailing-gap check
 
@@ -89,3 +91,21 @@ def events(evdev, devices: list, key: int, timeout: float) -> Iterator[Edge | No
                 if event.type == evdev.ecodes.EV_KEY and event.code == key:
                     if event.value != 2:            # ignore autorepeat
                         yield Edge(bool(event.value), event.timestamp())
+
+
+def open_input(settings) -> Input:
+    """The meta key itself: evdev in, uinput out."""
+    evdev = require_evdev()
+    key = resolve_key(evdev, settings.key)
+    found = find_keyboards(evdev)
+    if not found:
+        raise SystemExit("no keyboard found (are you in the 'input' group?)")
+    sink = open_sink(evdev)
+    return Input(events(evdev, found, key, TICK), sink, key,
+                 time.time,          # CLOCK_REALTIME, matching evdev stamps
+                 settings.timing,
+                 f"metamorse: {settings.key} on {len(found)} device(s), "
+                 f"unit={settings.timing.unit*1000:.0f}ms")
+
+
+register("key", open_input)
