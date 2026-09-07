@@ -33,9 +33,10 @@ It prints its full footprint and asks before each step. `--yes` to accept all,
 No system-wide unit, no shell rc edits, no system python changes, nothing
 copied outside those paths.
 
-The unit is a *user* unit bound to `graphical-session.target`, not a system
-one: the popup and the synthesized chords both need a display, so starting at
-boot would only fail and retry. Decline it and metamorse runs when you say so.
+The unit is a *user* unit, not a system one: metamorse runs as you, inside
+your session. It sets `DISPLAY=:0` — the OSD is a tkinter subprocess and a
+systemd user unit inherits no display of its own. Decline it and metamorse
+runs when you say so.
 
     metamorse service enable    install the unit and start it at login
     metamorse service remove    stop it and delete the unit

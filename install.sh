@@ -75,10 +75,9 @@ FOOTPRINT -- everything this touches:
   4. Group membership: adds you to 'input' if needed (sudo, needs re-login).
 
   5. $UNIT
-     A systemd *user* unit, enabled so metamorse starts with your graphical
-     session. No root: it runs as you, bound to graphical-session.target
-     because the popup and the synthesized chords both need a display.
-     Decline and nothing is written; start it yourself with 'metamorse run'.
+     A systemd *user* unit, enabled so metamorse starts at login. No root:
+     it runs as you. Decline and nothing is written; start it yourself
+     with 'metamorse run'.
 
 NOT touched: no system-wide unit, no shell rc, no system python, no files
 outside the paths above.

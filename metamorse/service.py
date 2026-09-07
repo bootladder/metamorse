@@ -16,16 +16,16 @@ UNIT_PATH = UNIT_DIR / UNIT
 TEMPLATE = """\
 [Unit]
 Description=metamorse -- morse code on the meta key
-PartOf=graphical-session.target
 After=graphical-session.target
 
 [Service]
+Environment=DISPLAY=:0
 ExecStart={exec_start} run
 Restart=on-failure
 RestartSec=2
 
 [Install]
-WantedBy=graphical-session.target
+WantedBy=default.target
 """
 
 
