@@ -70,4 +70,6 @@ def add_parsers(subs, run) -> None:
                         help="decode to stdout without dispatching")
     listen.add_argument("--no-popup", action="store_true",
                         help="suppress the on-screen menu")
+    listen.add_argument("--notes", action="store_true",
+                        help="print every block: pitch, note name, power, gate")
     listen.set_defaults(fn=lambda args: run(args, source="tone"))

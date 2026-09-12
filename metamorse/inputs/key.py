@@ -93,8 +93,12 @@ def events(evdev, devices: list, key: int, timeout: float) -> Iterator[Edge | No
                         yield Edge(bool(event.value), event.timestamp())
 
 
-def open_input(settings) -> Input:
-    """The meta key itself: evdev in, uinput out."""
+def open_input(settings, **_) -> Input:
+    """The meta key itself: evdev in, uinput out.
+
+    Ignores source-specific options: they belong to inputs that have something
+    to do with them, and the key path has no meter to switch on.
+    """
     evdev = require_evdev()
     key = resolve_key(evdev, settings.key)
     found = find_keyboards(evdev)

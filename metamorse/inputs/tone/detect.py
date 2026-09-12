@@ -106,6 +106,31 @@ class Spectrum:
 
 
 @dataclass(frozen=True, slots=True)
+class Note:
+    """What one block sounded like: a pitch, its strength, its partials.
+
+    Exists so the detector can report *what* it heard, not merely how loud it
+    was. `Gate` still sees only `power`, so the hysteresis stays ignorant of
+    frequency; the extra fields serve the meter and the pitch-stability test.
+
+    A silent or rejected block is `Note.silent()`: f0 of zero, power of zero.
+    Callers distinguish the two cases with `sounding`, never by comparing
+    floats.
+    """
+    f0: float = 0.0
+    power: float = 0.0
+    partials: int = 0
+
+    @classmethod
+    def silent(cls) -> Note:
+        return cls()
+
+    @property
+    def sounding(self) -> bool:
+        return self.power > 0.0
+
+
+@dataclass(frozen=True, slots=True)
 class Harmonicity:
     """Is this block a pitched string in guitar range? Stateless predicate.
 
@@ -118,17 +143,21 @@ class Harmonicity:
     snr: float = 6.0            # peak must beat the noise floor by this factor
     partial: float = 0.10       # partial counts if >= this fraction of f0
 
-    def power(self, spectrum: Spectrum) -> float:
-        """Peak magnitude if a string is sounding, else 0.0. Returning the
-        strength rather than a bool is what lets Gate apply hysteresis."""
+    def hear(self, spectrum: Spectrum) -> Note:
+        """The Note this block holds, or `Note.silent()` if none does.
+
+        Reporting strength rather than a bool is what lets Gate apply
+        hysteresis; reporting f0 alongside it is what lets the meter show the
+        player which string the detector thinks it heard.
+        """
         f0, mag = spectrum.peak(self.f0_min, self.f0_max)
         if not f0 or mag < self.snr * spectrum.noise:
-            return 0.0
+            return Note.silent()
         if spectrum.below(self.f0_min) >= SUBSONIC_RATIO * mag:
-            return 0.0                  # rooted below the guitar: hum, rumble
+            return Note.silent()        # rooted below the guitar: hum, rumble
         floor = self.partial * mag
         present = sum(spectrum.at(f0 * n) >= floor for n in HARMONICS)
-        return mag if present else 0.0
+        return Note(f0, mag, present) if present else Note.silent()
 
 
 @dataclass(frozen=True, slots=True)
@@ -203,20 +232,22 @@ class Detector:
     gate: Gate = Gate()
     window: Window = field(default_factory=Window.empty)
 
-    def step(self, hop: np.ndarray, t: float) -> tuple[Detector, Edge | None]:
+    def step(self, hop: np.ndarray, t: float) -> tuple[Detector, Edge | None, Note]:
+        """Advance one hop. The Note is returned whether or not it moved the
+        gate, because the meter reports every block while edges are rare."""
         window = self.window.push(hop)
-        power = self._power(window)
-        gate, edge = self.gate.step(power, t)
-        return replace(self, window=window, gate=gate), edge
+        note = self._hear(window)
+        gate, edge = self.gate.step(note.power, t)
+        return replace(self, window=window, gate=gate), edge, note
 
-    def observe(self, hop: np.ndarray) -> tuple[Detector, float]:
-        """Advance the window and report strength without gating. For
-        `--tune`, which measures thresholds rather than keying on them."""
+    def observe(self, hop: np.ndarray) -> tuple[Detector, Note]:
+        """Advance the window and report what was heard, without gating. For
+        `tune`, which measures thresholds rather than keying on them."""
         window = self.window.push(hop)
-        return replace(self, window=window), self._power(window)
+        return replace(self, window=window), self._hear(window)
 
-    def _power(self, window: Window) -> float:
-        return self.harmonicity.power(Spectrum.of(window.samples, self.samplerate))
+    def _hear(self, window: Window) -> Note:
+        return self.harmonicity.hear(Spectrum.of(window.samples, self.samplerate))
 
     def tuned(self, on: float) -> Detector:
         return replace(self, gate=replace(self.gate, on=on))

@@ -36,14 +36,18 @@ def register(name: str, opener: Callable[..., Input]) -> None:
     OPENERS[name] = opener
 
 
-def open_input(name: str, settings) -> Input:
+def open_input(name: str, settings, **options) -> Input:
     """Open a source by name, importing its module only if asked for.
 
     The import is deliberately lazy: `tone` needs numpy and sounddevice, and
     running on the meta key must not require either to be installed.
+
+    `options` carries source-specific switches straight through to the opener
+    that understands them. They are keyword-only and each opener names the ones
+    it accepts, so a flag meant for audio never silently changes the key path.
     """
     if name not in OPENERS:
         __import__(f"{__name__}.{name}")
     if name not in OPENERS:
         raise SystemExit(f"unknown input: {name!r}")
-    return OPENERS[name](settings)
+    return OPENERS[name](settings, **options)

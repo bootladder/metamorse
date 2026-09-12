@@ -69,10 +69,22 @@ class Tone:
             f"hangover = {self.hangover}\n")
 
 
-def open_input(settings) -> Input:
+def _printer(threshold: float):
+    """A per-block meter for `listen --notes`, bound to the threshold it draws
+    against. Returned as a closure so `edges` stays ignorant of formatting."""
+    from .notes import HEADER, meter
+    print(HEADER)
+    return lambda t, note, down: print(meter(t, note, threshold, down))
+
+
+def open_input(settings, notes: bool = False) -> Input:
     """Audio in, same sink out: a tone resolves to a letter and dispatches
     exactly as a keyed one does, and chord actions still need a real Meta to
-    press, so the uinput sink is unchanged."""
+    press, so the uinput sink is unchanged.
+
+    `notes` prints what the detector hears, block by block -- the display you
+    play against when a note will not key or a gap will not close.
+    """
     from ..key import TICK, open_sink, require_evdev, resolve_key
     from .capture import Clock, edges, find_input, open_stream, require_audio
     from .detect import Detector, Gate, Harmonicity
@@ -90,7 +102,9 @@ def open_input(settings) -> Input:
                         Gate(tone.threshold, hangover=tone.hangover))
     clock = Clock()
     timing = tone.timing(settings.timing.hold)
-    return Input(edges(stream, detector, TICK, clock), sink, key, clock, timing,
+    report = _printer(tone.threshold) if notes else None
+    return Input(edges(stream, detector, TICK, clock, report),
+                 sink, key, clock, timing,
                  f"metamorse: listening, unit={timing.unit*1000:.0f}ms, "
                  f"threshold={tone.threshold:.4g}")
 

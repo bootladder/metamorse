@@ -39,7 +39,7 @@ class TestHarmonicity(unittest.TestCase):
     dispatching a shell command."""
 
     def power(self, signal):
-        return Harmonicity().power(Spectrum.of(signal, SR))
+        return Harmonicity().hear(Spectrum.of(signal, SR)).power
 
     def test_any_guitar_note_keys(self):
         for name, f0 in GUITAR.items():
@@ -170,7 +170,7 @@ class TestDetector(unittest.TestCase):
         edges, t = [], start
         for i in range(0, len(signal) - HOP + 1, HOP):
             t += HOP / SR
-            detector, edge = detector.step(signal[i:i + HOP], t)
+            detector, edge, _ = detector.step(signal[i:i + HOP], t)
             if edge:
                 edges.append(edge)
         return detector, edges, t
@@ -197,9 +197,17 @@ class TestDetector(unittest.TestCase):
     def test_observe_reports_power_without_gating(self):
         detector = self.detector()
         for i in range(0, WINDOW, HOP):
-            detector, power = detector.observe(pluck(110.0)[i:i + HOP])
-        self.assertGreater(power, 0.0)
+            detector, note = detector.observe(pluck(110.0)[i:i + HOP])
+        self.assertGreater(note.power, 0.0)
         self.assertFalse(detector.gate.down)
+
+    def test_observe_reports_the_pitch_it_heard(self):
+        """The meter's whole purpose: play an A and be told it was an A."""
+        detector = self.detector()
+        for i in range(0, WINDOW, HOP):
+            detector, note = detector.observe(pluck(110.0)[i:i + HOP])
+        self.assertAlmostEqual(note.f0, 110.0, delta=6.0)
+        self.assertTrue(note.sounding)
 
 
 class TestToneToMorse(unittest.TestCase):
@@ -231,7 +239,7 @@ class TestToneToMorse(unittest.TestCase):
         t = 0.0
         for i in range(0, len(audio) - HOP + 1, HOP):
             t += HOP / SR
-            detector, edge = detector.step(audio[i:i + HOP], t)
+            detector, edge, _ = detector.step(audio[i:i + HOP], t)
             demod, symbols = (demod.step(edge) if edge else demod.tick(t))
             out.extend(symbols)
         return [s for s in out if s in (Symbol.DIT, Symbol.DAH)]

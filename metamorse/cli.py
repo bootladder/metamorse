@@ -105,7 +105,8 @@ def run(args, source: str | None = None) -> int:
     they open, whether they narrate, and whether they execute."""
     settings = config.Settings.load()
     keymap = load(config.KEYMAP)
-    source = open_input(source or settings.input, settings)
+    source = open_input(source or settings.input, settings,
+                        **({"notes": True} if getattr(args, "notes", False) else {}))
     print(f"{source.banner}.  ctrl-c to stop.")
 
     observer = _observer(args, keymap)

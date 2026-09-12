@@ -96,17 +96,23 @@ class Clock:
 
 
 def edges(stream: Stream, detector: Detector, tick: float,
-          clock: Clock) -> Iterator[Edge | None]:
+          clock: Clock, report=None) -> Iterator[Edge | None]:
     """Yield Edges from the tone gate; yield None between them so trailing
     gaps resolve. Mirrors `source.events` so `pump` cannot tell them apart.
 
     A None is emitted whenever `tick` seconds of stream time have passed with
     no edge, which is the audio equivalent of select() timing out.
+
+    `report` sees every block, not just the ones that move the gate: the
+    blocks that *fail* to key are the interesting ones when a note goes
+    missing, and they produce no edge to hang a diagnostic on.
     """
     last = 0.0
     for hop, t in stream.hops():
         clock.t = t
-        detector, edge = detector.step(hop, t)
+        detector, edge, note = detector.step(hop, t)
+        if report:
+            report(t, note, detector.gate.down)
         if edge is not None:
             last = t
             yield edge
@@ -120,12 +126,12 @@ def measure(stream: Stream, detector: Detector, seconds: float,
             report=None) -> float:
     """Listen for `seconds` of stream time and derive a gate threshold from
     whatever was played. Returns the suggested `on` value."""
-    powers = []
+    notes = []
     for hop, t in stream.hops():
-        detector, power = detector.observe(hop)
-        powers.append(power)
+        detector, note = detector.observe(hop)
+        notes.append(note)
         if report:
-            report(t, power)
+            report(t, note)
         if t >= seconds:
             break
-    return calibrate(powers)
+    return calibrate(note.power for note in notes)
