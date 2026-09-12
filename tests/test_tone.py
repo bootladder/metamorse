@@ -210,6 +210,82 @@ class TestDetector(unittest.TestCase):
         self.assertTrue(note.sounding)
 
 
+class FakeStream:
+    """A recording standing in for a microphone.
+
+    Yields the same (hop, timestamp) contract as `Stream.hops`, on the same
+    sample clock, so `measure` and `edges` cannot tell it from real capture.
+    """
+    samplerate = SR
+
+    def __init__(self, signal):
+        self.signal = signal
+
+    def hops(self):
+        elapsed = 0
+        for i in range(0, len(self.signal) - HOP + 1, HOP):
+            elapsed += HOP
+            yield self.signal[i:i + HOP], elapsed / SR
+
+
+class TestReportHooks(unittest.TestCase):
+    """The `report` callbacks `tune` and `listen --notes` hand in.
+
+    These exist because a Detector signature change once broke `metamorse
+    tune` while every test stayed green: the meter closures are real call
+    sites, and nothing else exercises them.
+    """
+
+    def playing(self, seconds=1.0):
+        """Plucked notes with gaps, as someone tuning would play."""
+        parts = []
+        for f0 in (110.0, 82.41, 146.83):
+            parts += [pluck(f0, n=int(0.25 * SR)), np.zeros(int(0.15 * SR))]
+        return np.concatenate(parts)
+
+    def test_measure_reports_notes_not_floats(self):
+        """What `tune`'s meter is handed must carry pitch, not just level."""
+        from metamorse.inputs.tone.capture import measure
+        seen = []
+        measure(FakeStream(self.playing()), Detector(SR), 1.0,
+                lambda t, note: seen.append(note))
+        self.assertTrue(seen)
+        sounding = [n for n in seen if n.sounding]
+        self.assertTrue(sounding)
+        self.assertTrue(all(n.f0 > 0.0 for n in sounding))
+
+    def test_tune_meter_renders_every_block(self):
+        """`cmd_tune`'s own closure, over real blocks -- the exact call that
+        raised TypeError when `report` began passing a Note."""
+        from metamorse.inputs.tone.capture import measure
+        from metamorse.inputs.tone.commands import name
+        lines = []
+
+        def meter(t, note):
+            bar = "#" * min(40, int(note.power / 25))
+            pitch = (f"{note.f0:6.1f}Hz {name(note.f0):>4}"
+                     if note.sounding else " " * 12)
+            lines.append(f"{t:5.1f}s {pitch} {note.power:9.1f} {bar}")
+
+        threshold = measure(FakeStream(self.playing()), Detector(SR), 1.0, meter)
+        self.assertTrue(lines)
+        self.assertGreater(threshold, 0.0)
+
+    def test_listen_meter_renders_every_block(self):
+        """`edges` reports every block with its gate state, including the
+        silent ones -- a gap that fails to close is the fault worth seeing."""
+        from metamorse.inputs.tone.capture import Clock, edges
+        from metamorse.inputs.tone.notes import meter
+        detector = Detector(SR, Harmonicity(), Gate(on=200.0, hangover=0.040))
+        seen = []
+        stream = edges(FakeStream(self.playing()), detector, 0.005, Clock(),
+                       lambda t, note, down: seen.append(meter(t, note, 200.0, down)))
+        list(stream)
+        self.assertTrue(seen)
+        self.assertTrue(any("Hz" in line for line in seen))
+        self.assertTrue(any("—" in line for line in seen))
+
+
 class TestToneToMorse(unittest.TestCase):
     """End to end over the real Demod: played notes must decode as Morse.
 

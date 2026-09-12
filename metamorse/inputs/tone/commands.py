@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 from . import SETTINGS, Tone
+from .notes import name
 
 
 def cmd_devices(args) -> int:
@@ -34,9 +35,14 @@ def cmd_tune(args) -> int:
     print(f"tuning for {args.seconds:.0f}s -- play single notes, "
           "as you would key them.\n")
 
-    def meter(t, power):
-        bar = "#" * min(40, int(power / 25))
-        print(f"\r  {t:5.1f}s  {power:9.1f}  {bar:<40}", end="", flush=True)
+    def meter(t, note):
+        """`notes.bar` draws against a threshold, and tuning is what produces
+        one -- so the scale here is absolute. The pitch is still worth showing:
+        it is what tells you `tune` is hearing the guitar and not the fridge."""
+        bar = "#" * min(40, int(note.power / 25))
+        pitch = f"{note.f0:6.1f}Hz {name(note.f0):>4}" if note.sounding else " " * 12
+        print(f"\r  {t:5.1f}s  {pitch}  {note.power:9.1f}  {bar:<40}",
+              end="", flush=True)
 
     threshold = measure(stream, Detector(tone.samplerate), args.seconds, meter)
     print()
