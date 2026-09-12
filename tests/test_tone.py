@@ -10,6 +10,7 @@ from metamorse.core.demod import Demod
 from metamorse.core.symbols import Symbol, Timing
 from metamorse.inputs.tone.detect import (HOP, WINDOW, Detector, Gate,
                                           Harmonicity, Spectrum, calibrate)
+from metamorse.inputs.tone.notes import name
 
 SR = 44100
 
@@ -80,6 +81,52 @@ class TestHarmonicity(unittest.TestCase):
     def test_quiet_note_still_keys(self):
         """Amplitude must not decide pitchedness -- that is the gate's job."""
         self.assertGreater(self.power(pluck(110.0, amp=0.05)), 0.0)
+
+
+class TestPeakInterpolation(unittest.TestCase):
+    """Sub-bin pitch accuracy.
+
+    A bin is 10.8Hz at 44.1kHz/4096 and a semitone at low E is 4.9Hz, so a
+    bin-centre reading is not merely imprecise -- it names the wrong note. The
+    element boundary compares two pitches, and it cannot resolve coarser than
+    the difference it exists to detect.
+    """
+
+    def cents(self, measured, true):
+        return 1200 * np.log2(measured / true)
+
+    def f0(self, true):
+        return Spectrum.of(pluck(true), SR).peak(75.0, 1400.0)[0]
+
+    def test_every_open_string_lands_within_ten_cents(self):
+        for note, true in GUITAR.items():
+            with self.subTest(note=note):
+                self.assertLess(abs(self.cents(self.f0(true), true)), 10.0)
+
+    def test_low_e_names_itself_correctly(self):
+        """The reading that exposed this: 82.41Hz sat in the 86.13Hz bin and
+        rendered as F2 -- a whole tone sharp of the string being played."""
+        self.assertEqual(name(self.f0(82.41)), "E2")
+
+    def test_beats_the_bin_centre_where_it_matters_most(self):
+        """Low notes gain the most: the bins are no wider there, but the
+        musical intervals between them are far narrower."""
+        spectrum = Spectrum.of(pluck(82.41), SR)
+        centre = spectrum.freqs[int(np.argmax(
+            np.where((spectrum.freqs >= 75.0) & (spectrum.freqs <= 1400.0),
+                     spectrum.mag, 0.0)))]
+        self.assertGreater(abs(self.cents(centre, 82.41)), 50.0)
+        self.assertLess(abs(self.cents(self.f0(82.41), 82.41)), 10.0)
+
+    def test_a_whole_tone_stays_unambiguous(self):
+        """Two frets apart must read as two distinct pitches with room to
+        spare, since that is the interval an element boundary turns on."""
+        apart = self.cents(self.f0(110.0), self.f0(98.0))
+        self.assertGreater(abs(apart), 150.0)
+
+    def test_silence_has_no_pitch(self):
+        self.assertEqual(Spectrum.of(np.zeros(WINDOW), SR).peak(75.0, 1400.0),
+                         (0.0, 0.0))
 
 
 class TestGate(unittest.TestCase):

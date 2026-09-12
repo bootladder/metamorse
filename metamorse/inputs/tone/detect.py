@@ -75,12 +75,42 @@ class Spectrum:
                    np.fft.rfftfreq(len(block), 1 / samplerate))
 
     def peak(self, lo: float, hi: float) -> tuple[float, float]:
-        """(frequency, magnitude) of the strongest bin within [lo, hi]."""
+        """(frequency, magnitude) of the strongest component within [lo, hi].
+
+        The frequency is interpolated between bins, not snapped to one. At the
+        low end of the guitar a bin is 10.8Hz wide and a semitone is 5Hz, so a
+        bin-centre reading names the wrong note outright -- an open low E
+        reports as F. Anything that compares two pitches needs to resolve finer
+        than the note it is trying to tell apart.
+        """
         band = (self.freqs >= lo) & (self.freqs <= hi)
         if not band.any():
             return 0.0, 0.0
-        index = np.argmax(np.where(band, self.mag, 0.0))
-        return float(self.freqs[index]), float(self.mag[index])
+        index = int(np.argmax(np.where(band, self.mag, 0.0)))
+        return self._interpolate(index), float(self.mag[index])
+
+    def _interpolate(self, index: int) -> float:
+        """Quadratic peak interpolation over the bin and its two neighbours.
+
+        A Hann-windowed sinusoid's main lobe is very nearly a parabola in log
+        magnitude, so fitting one through three points and taking its vertex
+        recovers the true frequency to a small fraction of a bin. Fitting in
+        log space rather than linear is what makes that true -- the linear
+        lobe is not parabolic, and fitting it there leaves several times the
+        error.
+        """
+        if index <= 0 or index >= len(self.mag) - 1:
+            return float(self.freqs[index])     # no neighbour to fit against
+        alpha, beta, gamma = (float(np.log(self.mag[i] + 1e-12))
+                              for i in (index - 1, index, index + 1))
+        denominator = alpha - 2 * beta + gamma
+        if denominator == 0.0:
+            return float(self.freqs[index])     # flat: the bin centre it is
+        offset = 0.5 * (alpha - gamma) / denominator
+        if abs(offset) > 1.0:
+            return float(self.freqs[index])     # fit ran away; trust the bin
+        spacing = float(self.freqs[1] - self.freqs[0])
+        return float(self.freqs[index]) + offset * spacing
 
     def below(self, freq: float) -> float:
         """Strongest magnitude beneath `freq`, ignoring the DC bin."""
