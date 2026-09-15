@@ -13,6 +13,21 @@ from dataclasses import dataclass, field
 from ..core.keymap import Branch, Node
 from .render import rows
 
+OSD_FLAG = "--osd"
+"""Argv marker that runs the OSD instead of the CLI.
+
+A frozen build has no interpreter to hand `-m metamorse.ui.osd` to:
+sys.executable is metamorse.exe itself, which ignores -m. So the exe
+re-invokes itself with this flag and `cli.main` routes on it before argparse
+ever runs. Unfrozen, the old `-m` spawn is still the honest thing to do.
+"""
+
+
+def _osd_command() -> list[str]:
+    if getattr(sys, "frozen", False):
+        return [sys.executable, OSD_FLAG]
+    return [sys.executable, "-m", "metamorse.ui.osd"]
+
 
 @dataclass
 class PopupObserver:
@@ -38,8 +53,7 @@ class PopupObserver:
         if self.process is not None and self.process.poll() is None:
             return
         self.process = subprocess.Popen(
-            [sys.executable, "-m", "metamorse.ui.osd"],
-            stdin=subprocess.PIPE, text=True)
+            _osd_command(), stdin=subprocess.PIPE, text=True)
 
     def _open(self) -> None:
         self.start()                     # no-op once running

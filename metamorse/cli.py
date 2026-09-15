@@ -11,6 +11,7 @@ from . import config, doctor, service
 from .core import (Action, Branch, Demod, Dispatcher, NullObserver,
                    Passthrough, Session, load, parse_chord, pump, shell)
 from .inputs import open_input
+from .ui.popup import OSD_FLAG
 
 SHARE = Path(__file__).resolve().parent.parent / "share"
 
@@ -142,6 +143,11 @@ def _add_tone_parsers(subs) -> None:
 
 
 def main(argv=None) -> int:
+    argv = sys.argv[1:] if argv is None else argv
+    if argv and argv[0] == OSD_FLAG:
+        from .ui.osd import main as osd_main
+        return osd_main()          # the frozen exe re-invoking itself
+
     parser = argparse.ArgumentParser(prog="metamorse",
                                      description="Morse code on the meta key.")
     subs = parser.add_subparsers(dest="cmd", required=True)
