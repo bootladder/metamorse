@@ -1,4 +1,5 @@
 .scratch/
+.pview/
 __pycache__/
 build/
 dist/
