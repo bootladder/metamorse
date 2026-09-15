@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -29,7 +30,16 @@ def _share() -> Path:
 SHARE = _share()
 
 
+RUNTIME_FOOTPRINT = {
+    "linux": "one /dev/uinput device named 'metamorse' while running",
+    "win32": "a low-level keyboard hook while running",
+    "darwin": "an event tap while running (needs Accessibility)",
+}
+
+
 def cmd_install(args) -> int:
+    """Writes the keymap. It installs nothing else -- the binary runs from
+    wherever it sits, and nothing is copied or added to PATH."""
     config.CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     if config.KEYMAP.exists() and not args.force:
         print(f"keymap already exists: {config.KEYMAP}  (--force to overwrite)")
@@ -39,9 +49,44 @@ def cmd_install(args) -> int:
     print("\nfootprint:")
     print(f"  config   {config.CONFIG_DIR}/")
     print("  code     this directory (nothing installed system-wide)")
-    print("  runtime  one /dev/uinput device named 'metamorse' while running")
-    print("\nnext: metamorse doctor")
+    print(f"  runtime  {RUNTIME_FOOTPRINT.get(sys.platform, 'a keyboard hook')}")
+    print("\nnext: metamorse edit   (your keymap)"
+          "\n      metamorse doctor  (check it can run)")
     return 0
+
+
+EDITORS = {
+    "win32": lambda path: ["notepad", str(path)],
+    "darwin": lambda path: ["open", "-t", str(path)],
+}
+
+
+def editor_command(path: Path) -> list[str]:
+    """How this platform opens a text file for editing.
+
+    $EDITOR wins everywhere when it is set -- someone who exported it means
+    it. Otherwise each platform has an obvious answer and Linux falls back to
+    the desktop's.
+    """
+    editor = os.environ.get("EDITOR") or os.environ.get("VISUAL")
+    if editor:
+        return [editor, str(path)]
+    return EDITORS.get(sys.platform, lambda p: ["xdg-open", str(p)])(path)
+
+
+def cmd_edit(args) -> int:
+    """Open the keymap in an editor. Finding the file is the hard part on
+    Windows, where it lives somewhere no one would think to look."""
+    if not config.KEYMAP.exists():
+        print(f"no keymap at {config.KEYMAP}\nrun: metamorse install")
+        return 1
+    command = editor_command(config.KEYMAP)
+    print(f"opening {config.KEYMAP}")
+    try:
+        return subprocess.call(command)
+    except FileNotFoundError:
+        print(f"could not run {command[0]!r}.\nedit it yourself: {config.KEYMAP}")
+        return 1
 
 
 def cmd_doctor(args) -> int:
@@ -172,6 +217,8 @@ def main(argv=None) -> int:
     subs.add_parser("doctor", help="check the system can run metamorse"
                     ).set_defaults(fn=cmd_doctor)
     subs.add_parser("keys", help="print the keymap").set_defaults(fn=cmd_keys)
+    subs.add_parser("edit", help="open the keymap in an editor"
+                    ).set_defaults(fn=cmd_edit)
 
     run_cmd = subs.add_parser("run", help="start the daemon")
     run_cmd.add_argument("--no-popup", action="store_true",

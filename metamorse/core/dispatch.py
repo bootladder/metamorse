@@ -2,10 +2,14 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 from dataclasses import dataclass
 from typing import Callable
 
 from .keymap import Action
+
+DETACHED_PROCESS = 0x00000008
+CREATE_NEW_PROCESS_GROUP = 0x00000200
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,11 +26,25 @@ class Dispatcher:
             self.synth(action.arg)
 
 
+def _detach() -> dict:
+    """How to outlive the daemon, in this platform's terms.
+
+    POSIX detaches by leaving the session; Windows has no sessions and takes
+    creation flags instead. `start_new_session` is accepted and silently
+    ignored there -- the spawned program would stay tied to our console and
+    die with it -- so the flags are not cosmetic.
+    """
+    if sys.platform == "win32":
+        return {"creationflags": DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP}
+    return {"start_new_session": True}
+
+
 def shell(command: str) -> None:
     """Detached so a slow command never stalls the event loop."""
-    subprocess.Popen(command, shell=True, start_new_session=True,
+    subprocess.Popen(command, shell=True,
                      stdin=subprocess.DEVNULL,
-                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                     **_detach())
 
 
 def parse_chord(chord: str) -> tuple[list[str], str]:

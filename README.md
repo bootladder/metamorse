@@ -52,12 +52,25 @@ never imports them.
 
 ## Windows
 
-Download `metamorse.exe` from the build artifacts — a single file, no Python
-to install. Then:
+Download `metamorse.exe` from the latest release — a single file, no Python
+to install. Then, from the folder you put it in:
 
     metamorse.exe doctor    check it can run
     metamorse.exe install   write the default keymap
+    metamorse.exe edit      open that keymap in notepad
     metamorse.exe run       start it in this terminal
+
+`install` writes the keymap and nothing else: it does not copy the binary
+anywhere or touch your PATH, so `metamorse` only works from the folder the
+exe is in. To have it everywhere, put the exe somewhere permanent — say
+`%LOCALAPPDATA%\metamorse\` — and add that folder to your user PATH once:
+
+    setx PATH "%PATH%;%LOCALAPPDATA%\metamorse"
+
+Open a new terminal afterwards; `setx` does not affect the current one.
+
+The keymap lives at `%USERPROFILE%\.config\metamorse\keymap.toml` and
+`metamorse.exe edit` is the easy way to reach it.
 
 The default key is the left Windows key. Windows binds that itself: a bare
 tap opens the Start menu, and Win+L and Win+G are reserved by the shell.

@@ -1,0 +1,85 @@
+name: release
+
+# Publishes the binaries to a GitHub Release, which unlike a workflow
+# artifact gives a permanent download URL that needs no login.
+#
+# Fires on a version tag only, so ordinary pushes keep producing artifacts
+# and a release is something you choose:
+#
+#     git tag v0.1.0 && git push --tags
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write          # required to create the release
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pyinstaller
+      - run: pyinstaller packaging/metamorse.spec
+      - name: smoke test
+        run: |
+          dist\metamorse.exe install
+          dist\metamorse.exe keys
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          path: dist/metamorse.exe
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pyinstaller
+      - run: pyinstaller packaging/metamorse-macos.spec
+      - name: smoke test
+        run: |
+          ./dist/metamorse install
+          ./dist/metamorse keys
+      - name: name it for the release
+        # Both platforms build a file called `metamorse`; the release needs
+        # distinguishable names.
+        run: mv dist/metamorse dist/metamorse-macos
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-macos
+          path: dist/metamorse-macos
+
+  publish:
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: publish the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/release-windows/metamorse.exe
+            artifacts/release-macos/metamorse-macos
+          generate_release_notes: true
+          body: |
+            Single-file binaries. No Python needed to run them.
+
+            **Windows** — `metamorse.exe`. SmartScreen will warn on an
+            unsigned binary: More info → Run anyway.
+
+            **macOS** — `metamorse-macos`. `chmod +x` it first. A browser
+            download is quarantined, so either fetch it with `curl` or
+            `xattr -d com.apple.quarantine metamorse-macos`. Needs
+            Accessibility permission; `doctor` says so.
+
+            Linux runs from a checkout — see the README.
