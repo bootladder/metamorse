@@ -14,6 +14,22 @@ buys collision-free coexistence with every existing Meta binding.
 
 ## Install
 
+Two ways. A **single binary** from the latest release, if you just want to
+run it:
+
+    chmod +x metamorse-linux
+    ./metamorse-linux doctor    what it needs; a fix printed for each failure
+    ./metamorse-linux install   write the default keymap
+    ./metamorse-linux run       start it in this terminal
+
+It bundles evdev, so no distro packages and no checkout — but it still needs
+`/dev/uinput` access, which means the udev rule and the `input` group that
+`doctor` prints. Built against glibc 2.35, so Debian 12 and newer.
+
+Or from a **checkout**, which is the fuller install — it adds the launcher,
+the systemd user unit and the udev rule, and gives you the optional tone
+input that the binary leaves out:
+
     ./install.sh
 
 It prints its full footprint and asks before each step. `--yes` to accept all,

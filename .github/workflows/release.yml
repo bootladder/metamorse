@@ -35,6 +35,39 @@ jobs:
           name: release-windows
           path: dist/metamorse.exe
 
+  linux:
+    # 22.04, not latest: a PyInstaller binary needs the glibc it was built
+    # against or newer, and 24.04's 2.39 would refuse to start on Debian 12.
+    # 2.35 keeps Debian 12 and anything newer in range.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: build deps
+        # evdev is a C extension and gets bundled, so it has to compile here.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3-dev libevdev-dev
+          pip install pyinstaller evdev
+      - run: pyinstaller packaging/metamorse-linux.spec
+      - name: smoke test
+        # No keyboard or uinput on a runner, so `run` cannot be tested. That
+        # evdev imports from inside the bundle is the thing worth proving:
+        # without it this binary would be useless on a real machine.
+        run: |
+          ./dist/metamorse install
+          ./dist/metamorse keys
+          ./dist/metamorse doctor || true
+          ./dist/metamorse doctor | grep -q evdev
+      - name: name it for the release
+        run: mv dist/metamorse dist/metamorse-linux
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-linux
+          path: dist/metamorse-linux
+
   macos:
     runs-on: macos-latest
     steps:
@@ -58,7 +91,7 @@ jobs:
           path: dist/metamorse-macos
 
   publish:
-    needs: [windows, macos]
+    needs: [windows, linux, macos]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -69,6 +102,7 @@ jobs:
         with:
           files: |
             artifacts/release-windows/metamorse.exe
+            artifacts/release-linux/metamorse-linux
             artifacts/release-macos/metamorse-macos
           generate_release_notes: true
           body: |
@@ -77,9 +111,12 @@ jobs:
             **Windows** — `metamorse.exe`. SmartScreen will warn on an
             unsigned binary: More info → Run anyway.
 
+            **Linux** — `metamorse-linux`. `chmod +x` it first. evdev is
+            bundled, so no distro packages, but it still needs `/dev/uinput`
+            access — `doctor` prints the udev rule and group. Built against
+            glibc 2.35, so Debian 12 and newer.
+
             **macOS** — `metamorse-macos`. `chmod +x` it first. A browser
             download is quarantined, so either fetch it with `curl` or
             `xattr -d com.apple.quarantine metamorse-macos`. Needs
             Accessibility permission; `doctor` says so.
-
-            Linux runs from a checkout — see the README.
