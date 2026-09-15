@@ -1,16 +1,26 @@
 """Tone detection tests. Synthetic audio only -- no microphone required.
 
 python3 -m unittest discover tests
+
+Skipped wholesale where numpy is absent. Tone is a Linux-only input by
+choice -- numpy, sounddevice and portaudio have no business in a keyboard
+utility's download -- so the Windows and macOS runners have none of it. The
+skip is raised at import time because that is when the dependency is needed:
+discovery imports this module, and an ImportError here would fail the run
+rather than pass over an input that platform does not have.
 """
 import unittest
 
-import numpy as np
+try:
+    import numpy as np
 
-from metamorse.core.demod import Demod
-from metamorse.core.symbols import Symbol, Timing
-from metamorse.inputs.tone.detect import (HOP, WINDOW, Detector, Gate,
-                                          Harmonicity, Spectrum, calibrate)
-from metamorse.inputs.tone.notes import name
+    from metamorse.core.demod import Demod
+    from metamorse.core.symbols import Symbol, Timing
+    from metamorse.inputs.tone.detect import (HOP, WINDOW, Detector, Gate,
+                                              Harmonicity, Spectrum, calibrate)
+    from metamorse.inputs.tone.notes import name
+except ImportError as exc:
+    raise unittest.SkipTest(f"tone tests need numpy ({exc.name} is missing)")
 
 SR = 44100
 
