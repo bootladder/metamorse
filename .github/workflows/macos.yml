@@ -1,0 +1,64 @@
+name: macos build
+
+# Builds the macOS binary. PyInstaller bundles the host interpreter and
+# cannot cross-compile, so this runner is what stands in for a Mac.
+#
+# SCOPE. There is no macOS key backend yet, so the binary this produces is
+# the CLI and the pure core: doctor, keys, install, tap's decoder. `run`
+# exits saying darwin has no backend. Building and testing it now is what
+# stops the packaging work from piling up behind the backend -- when the
+# CGEventTap input lands, the release path is already proven.
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: run the suite
+        # The pure core runs anywhere. The Windows name tables run here too:
+        # they are plain dicts, and testing them on every platform is what
+        # catches a keymap that names a key one backend cannot resolve.
+        run: python -m unittest discover tests -v
+
+  build:
+    needs: test
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: install pyinstaller
+        run: pip install pyinstaller
+
+      - name: build
+        run: pyinstaller packaging/metamorse-macos.spec
+
+      - name: smoke test the binary
+        # `install` first: a fresh runner has no keymap, and `keys` reads the
+        # installed one. That it can write the bundled default is itself the
+        # test that _MEIPASS resolves.
+        #
+        # `doctor` exits non-zero on an unsupported platform, which is the
+        # correct answer on darwin today -- so assert the message, not the code.
+        run: |
+          ./dist/metamorse install
+          ./dist/metamorse keys
+          ./dist/metamorse doctor || true
+          ./dist/metamorse doctor | grep -q darwin
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: metamorse-macos
+          path: dist/metamorse
+          if-no-files-found: error

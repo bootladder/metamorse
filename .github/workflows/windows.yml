@@ -39,11 +39,13 @@ jobs:
         run: pyinstaller packaging/metamorse.spec
 
       - name: smoke test the exe
-        # Proves the hiddenimports are right: `keys` loads the bundled keymap
-        # and `doctor` exercises the Windows check path. Neither needs a hook.
+        # Proves the hiddenimports are right and that _MEIPASS resolves:
+        # `install` writes the bundled keymap, `keys` reads it back, `doctor`
+        # exercises the Windows check path. None of them needs a hook.
         run: |
-          dist\metamorse.exe doctor
+          dist\metamorse.exe install
           dist\metamorse.exe keys
+          dist\metamorse.exe doctor
 
       - uses: actions/upload-artifact@v4
         with:

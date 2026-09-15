@@ -80,6 +80,20 @@ interpreter and cannot cross-compile from Linux. `pip install pyinstaller`
 then `pyinstaller packaging/metamorse.spec`. The GitHub Actions workflow in
 `.github/workflows/windows.yml` does exactly that on every push.
 
+## macOS
+
+Not yet. The CLI builds and runs — `doctor`, `keys`, `install` — but there is
+no key backend, so `metamorse run` exits saying darwin has no backend. The
+binary is built and published on every push anyway, which keeps the packaging
+honest: when the input lands, the release path is already proven.
+
+What it will take: `CGEventTap` for capture and `CGEventPost` for injection.
+Two things make it more work than Windows was — the tap needs Accessibility
+permission, which is a prompt and a trip to System Settings rather than a
+one-line fix `doctor` can print; and the binary wants a Developer ID
+signature and notarization, or Gatekeeper blocks it and the permission grant
+is invalidated on every rebuild.
+
 ## Use
 
     metamorse doctor   check the system is ready; prints a fix for each failure
