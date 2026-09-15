@@ -1,6 +1,9 @@
-"""The impure edge: evdev capture, uinput injection, event loop.
+"""The impure edge on Linux: evdev capture, uinput injection, event loop.
 
 evdev is imported lazily so the pure core and `doctor` work without it.
+
+Registration belongs to the package, not here: this module is chosen by
+platform, never by name.
 """
 from __future__ import annotations
 
@@ -9,10 +12,12 @@ import time
 from dataclasses import dataclass
 from typing import Iterator
 
-from ..core.symbols import Edge
-from . import Input, register
+from ...core.symbols import Edge
+from .. import Input
 
 TICK = 0.005         # resolution of the trailing-gap check
+
+DEFAULT_KEY = "leftmeta"     # evdev's name for it; see the package docstring
 
 
 def require_evdev():
@@ -100,7 +105,8 @@ def open_input(settings, **_) -> Input:
     to do with them, and the key path has no meter to switch on.
     """
     evdev = require_evdev()
-    key = resolve_key(evdev, settings.key)
+    name = settings.key or DEFAULT_KEY
+    key = resolve_key(evdev, name)
     found = find_keyboards(evdev)
     if not found:
         raise SystemExit("no keyboard found (are you in the 'input' group?)")
@@ -108,8 +114,5 @@ def open_input(settings, **_) -> Input:
     return Input(events(evdev, found, key, TICK), sink, key,
                  time.time,          # CLOCK_REALTIME, matching evdev stamps
                  settings.timing,
-                 f"metamorse: {settings.key} on {len(found)} device(s), "
+                 f"metamorse: {name} on {len(found)} device(s), "
                  f"unit={settings.timing.unit*1000:.0f}ms")
-
-
-register("key", open_input)

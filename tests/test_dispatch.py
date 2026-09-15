@@ -80,8 +80,11 @@ class TestSettings(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
 
     def test_defaults_when_absent(self):
+        """`key` stays unset: which key, and by what name, is the backend's
+        call. Asserting 'leftmeta' here would put evdev vocabulary in the
+        platform-independent config layer."""
         settings = config.Settings.load(Path(self.tmp.name) / "nope.toml")
-        self.assertEqual(settings.key, "leftmeta")
+        self.assertIsNone(settings.key)
         self.assertAlmostEqual(settings.timing.unit, 0.09)
 
     def test_overrides(self):
@@ -96,7 +99,7 @@ class TestSettings(unittest.TestCase):
         path = Path(self.tmp.name) / "s.toml"
         path.write_text('unit = 0.15\n')
         settings = config.Settings.load(path)
-        self.assertEqual(settings.key, "leftmeta")
+        self.assertIsNone(settings.key)
         self.assertAlmostEqual(settings.timing.unit, 0.15)
 
 
