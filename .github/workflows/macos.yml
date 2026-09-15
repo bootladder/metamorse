@@ -49,13 +49,15 @@ jobs:
         # installed one. That it can write the bundled default is itself the
         # test that _MEIPASS resolves.
         #
-        # `doctor` exits non-zero on an unsupported platform, which is the
-        # correct answer on darwin today -- so assert the message, not the code.
+        # doctor exits non-zero here and should: a CI runner has no desktop
+        # session and never grants Accessibility, so that check fails by
+        # design. What is asserted is that it got far enough to *ask* --
+        # reaching the macOS checks at all proves the backend loaded.
         run: |
           ./dist/metamorse install
           ./dist/metamorse keys
           ./dist/metamorse doctor || true
-          ./dist/metamorse doctor | grep -q darwin
+          ./dist/metamorse doctor | grep -q Accessibility
 
       - uses: actions/upload-artifact@v4
         with:

@@ -82,17 +82,34 @@ then `pyinstaller packaging/metamorse.spec`. The GitHub Actions workflow in
 
 ## macOS
 
-Not yet. The CLI builds and runs — `doctor`, `keys`, `install` — but there is
-no key backend, so `metamorse run` exits saying darwin has no backend. The
-binary is built and published on every push anyway, which keeps the packaging
-honest: when the input lands, the release path is already proven.
+Download the `metamorse-macos` build, then:
 
-What it will take: `CGEventTap` for capture and `CGEventPost` for injection.
-Two things make it more work than Windows was — the tap needs Accessibility
-permission, which is a prompt and a trip to System Settings rather than a
-one-line fix `doctor` can print; and the binary wants a Developer ID
-signature and notarization, or Gatekeeper blocks it and the permission grant
-is invalidated on every rebuild.
+    chmod +x metamorse
+    ./metamorse doctor     tells you what is missing, including permission
+    ./metamorse install    write the default keymap
+    ./metamorse run        start it in this terminal
+
+**Accessibility permission is required.** An event tap without it installs
+successfully and then silently delivers nothing, so metamorse checks up
+front and refuses rather than looking broken. Grant it in System Settings >
+Privacy & Security > Accessibility.
+
+The default key is **right Command**. Left Command runs the entire platform —
+copy, paste, every menu shortcut — so keying Morse on it would be a fight.
+Right Command is the same key as far as the OS is concerned, and almost
+nothing binds it alone. `key = "capslock"` is the other good answer.
+
+If macOS quarantines the download (browser downloads only), either
+`xattr -d com.apple.quarantine metamorse` or fetch it with `curl`, which
+does not set the flag. The binary is unsigned: signing it so *other* people
+avoid that prompt needs a paid Apple Developer ID, which this project does
+not have.
+
+The shipped keymap launches Linux programs, so it is a starting point to
+edit rather than something to use as-is.
+
+**Not yet on macOS:** starting at login, and keying with a guitar — the tone
+input is Linux-only on purpose.
 
 ## Use
 

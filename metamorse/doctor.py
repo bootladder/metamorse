@@ -83,7 +83,23 @@ def _windows() -> Iterator[tuple[bool, str]]:
     yield _check(f"running elevated: {'yes' if elevated else 'no'}", True, "")
 
 
-PLATFORMS = {"linux": _linux, "win32": _windows}
+def _macos() -> Iterator[tuple[bool, str]]:
+    import ctypes
+    import ctypes.util
+
+    frameworks = all(ctypes.util.find_library(name) is not None
+                     for name in ("CoreGraphics", "CoreFoundation"))
+    yield _check("CoreGraphics reachable", frameworks,
+                 "this does not look like macOS, or the frameworks are missing")
+
+    from .inputs.key.macos import _trusted
+    yield _check("Accessibility permission granted", _trusted(),
+                 "System Settings > Privacy & Security > Accessibility:\n"
+                 "        add this program and switch it on. An untrusted tap\n"
+                 "        installs and then reads nothing at all.")
+
+
+PLATFORMS = {"linux": _linux, "win32": _windows, "darwin": _macos}
 
 
 def checks() -> Iterator[tuple[bool, str]]:

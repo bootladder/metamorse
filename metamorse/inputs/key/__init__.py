@@ -6,9 +6,9 @@ platform decision made here and nowhere else. Everything downstream --
 
 Key *names* are the one thing that cannot be shared. Linux resolves them
 through evdev (`KEY_LEFTMETA`), Windows through virtual key codes (`VK_LWIN`),
-so each backend owns its own vocabulary and its own default. `settings.key`
-overrides that default when set; leaving it unset is what asks for the
-platform's own answer.
+macOS through positional keycodes (`kVK_Command`), so each backend owns its
+own vocabulary and its own default. `settings.key` overrides that default
+when set; leaving it unset is what asks for the platform's own answer.
 """
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ import sys
 
 from .. import Input, register
 
-BACKENDS = {"linux": "linux", "win32": "windows"}
+BACKENDS = {"linux": "linux", "win32": "windows", "darwin": "macos"}
 
 
 def _backend():
