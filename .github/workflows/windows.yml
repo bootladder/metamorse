@@ -1,0 +1,52 @@
+name: windows build
+
+# Builds metamorse.exe on a real Windows runner. PyInstaller bundles the host
+# interpreter, so it cannot cross-compile from Linux -- this is what stands in
+# for a Windows box.
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: run the suite
+        # The pure core and the Windows name tables both run here. The hook
+        # and SendInput need a real desktop session and are not covered.
+        run: python -m unittest discover tests -v
+
+  build:
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: install pyinstaller
+        run: pip install pyinstaller
+
+      - name: build
+        run: pyinstaller packaging/metamorse.spec
+
+      - name: smoke test the exe
+        # Proves the hiddenimports are right: `keys` loads the bundled keymap
+        # and `doctor` exercises the Windows check path. Neither needs a hook.
+        run: |
+          dist\metamorse.exe doctor
+          dist\metamorse.exe keys
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: metamorse-windows
+          path: dist/metamorse.exe
+          if-no-files-found: error

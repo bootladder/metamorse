@@ -13,7 +13,20 @@ from .core import (Action, Branch, Demod, Dispatcher, NullObserver,
 from .inputs import open_input
 from .ui.popup import OSD_FLAG
 
-SHARE = Path(__file__).resolve().parent.parent / "share"
+def _share() -> Path:
+    """Where the default keymap ships.
+
+    Frozen, the checkout is gone and PyInstaller unpacks bundled data under
+    sys._MEIPASS, so walking up from __file__ lands in a temp directory that
+    has no share/. Unfrozen, it is the sibling of the package.
+    """
+    bundled = getattr(sys, "_MEIPASS", None)
+    if bundled:
+        return Path(bundled) / "share"
+    return Path(__file__).resolve().parent.parent / "share"
+
+
+SHARE = _share()
 
 
 def cmd_install(args) -> int:

@@ -50,6 +50,36 @@ sounddevice. That input is optional and self-contained: without those packages
 the tone commands simply do nothing you would notice, and `metamorse run`
 never imports them.
 
+## Windows
+
+Download `metamorse.exe` from the build artifacts — a single file, no Python
+to install. Then:
+
+    metamorse.exe doctor    check it can run
+    metamorse.exe install   write the default keymap
+    metamorse.exe run       start it in this terminal
+
+The default key is the left Windows key. Windows binds that itself: a bare
+tap opens the Start menu, and Win+L and Win+G are reserved by the shell.
+metamorse replays the tap only when your gesture decodes to a bare `e`, so
+tapping still opens Start — but the reserved chords stay Windows'. If you
+would rather not share, name another key:
+
+    # %USERPROFILE%\.config\metamorse\metamorse.toml
+    key = "capslock"
+
+The shipped keymap launches Linux programs, so it is a starting point to
+edit rather than something to use as-is.
+
+**Not yet on Windows:** starting at login (no service equivalent of the
+systemd unit yet), and keying with a guitar — the tone input is Linux-only
+on purpose and its commands simply do not appear.
+
+Building it yourself needs a Windows machine: PyInstaller bundles the host
+interpreter and cannot cross-compile from Linux. `pip install pyinstaller`
+then `pyinstaller packaging/metamorse.spec`. The GitHub Actions workflow in
+`.github/workflows/windows.yml` does exactly that on every push.
+
 ## Use
 
     metamorse doctor   check the system is ready; prints a fix for each failure
