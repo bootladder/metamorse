@@ -86,6 +86,26 @@ class TestInjectionSource(unittest.TestCase):
         self.assertNotEqual(macos.PRIVATE_STATE, macos.HID_SYSTEM_STATE)
 
 
+class TestClock(unittest.TestCase):
+    """Edges are stamped by CGEventGetTimestamp (nanoseconds) and idle ticks
+    by mach_absolute_time (ticks). Demod compares them directly, so the two
+    must be the same scale."""
+
+    def test_scales_ticks_to_nanoseconds(self):
+        """Apple Silicon is 125/3: unscaled, the clock runs 41x slow and the
+        first idle tick reports a word gap, killing any lone dash."""
+        class Libc:
+            def mach_absolute_time(self):
+                return 24_000_000          # one second of 24MHz ticks
+        self.assertAlmostEqual(macos.clock(Libc(), 125 / 3), 1.0, places=6)
+
+    def test_intel_timebase_is_identity(self):
+        class Libc:
+            def mach_absolute_time(self):
+                return 1_000_000_000
+        self.assertAlmostEqual(macos.clock(Libc(), 1.0), 1.0, places=6)
+
+
 class TestChordInterop(unittest.TestCase):
     """`parse_chord` is platform-independent; what it yields must resolve."""
 
