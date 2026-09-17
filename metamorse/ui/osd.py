@@ -111,6 +111,40 @@ def _reader(queue):
     queue.put(None)
 
 
+def _monitors() -> list[tuple[int, int, int, int]]:
+    """Connected monitors as (x, y, w, h), from xrandr. Empty if it is not
+    there or says nothing useful, which is the signal to fall back."""
+    import re
+    import subprocess
+    try:
+        out = subprocess.run(["xrandr", "--query"], capture_output=True,
+                             text=True, timeout=2).stdout
+    except (OSError, subprocess.SubprocessError):
+        return []
+    return [(int(m[3]), int(m[4]), int(m[1]), int(m[2]))
+            for m in re.findall(r"\bconnected\b[^\n]*?(\s|\b)"
+                                r"(\d+)x(\d+)\+(\d+)\+(\d+)", out)]
+
+
+def _monitor(root) -> tuple[int, int, int, int]:
+    """The monitor under the pointer, as (x, y, w, h).
+
+    tk's winfo_screenwidth/height report the whole virtual desktop, so on a
+    multi-head layout centring by them puts the window in the bounding box's
+    middle -- which is off every physical panel when the heads differ in size
+    or are stacked. Falling back to that box is still right for one monitor.
+    """
+    whole = (0, 0, root.winfo_screenwidth(), root.winfo_screenheight())
+    monitors = _monitors()
+    if not monitors:
+        return whole
+    px, py = root.winfo_pointerx(), root.winfo_pointery()
+    for x, y, w, h in monitors:
+        if x <= px < x + w and y <= py < y + h:
+            return x, y, w, h
+    return monitors[0]
+
+
 def main() -> int:
     import queue as queuelib
     import threading
@@ -137,12 +171,14 @@ def main() -> int:
     shown = {"at": None}
 
     def place() -> None:
-        """Centre the window, recomputing its size only when the row count
-        changed. A layout pass per keystroke is this process's biggest cost."""
+        """Centre on the monitor holding the pointer, recomputing size only
+        when the row count changed. A layout pass per keystroke is this
+        process's biggest cost."""
         root.update_idletasks()
         size = (root.winfo_width(), root.winfo_height())
-        x = (root.winfo_screenwidth() - size[0]) // 2
-        y = int(root.winfo_screenheight() * 0.70) - size[1] // 2
+        mx, my, mw, mh = _monitor(root)
+        x = mx + (mw - size[0]) // 2
+        y = my + int(mh * 0.70) - size[1] // 2
         if shown["at"] != (x, y):
             shown["at"] = (x, y)
             root.geometry(f"+{x}+{y}")
