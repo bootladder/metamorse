@@ -28,10 +28,11 @@ if the source is a *private* one: the HID source shares its state ID with
 every physical keypress, so injecting from it makes the guard true for the
 whole keyboard and the tap reads nothing at all.
 
-TIMEBASE.  CGEventGetTimestamp is mach absolute time in nanoseconds, and
-Demod requires edges and idle ticks on one clock, so that is the clock.
-Never time.time(): the same rule the audio input follows, and the same bug
-if it is broken.
+TIMEBASE.  CGEventGetTimestamp is nanoseconds, and Demod requires edges and
+idle ticks on one clock, so that is the clock. mach_absolute_time is the
+cheap way to read it for idle ticks, but its ticks are NOT nanoseconds --
+scale by mach_timebase_info or the clock runs 41x slow on Apple Silicon and
+every idle tick reports a word gap.
 
 ACCESSIBILITY.  A tap that is not trusted installs and then silently
 delivers nothing, so `open_input` checks first and says so rather than
@@ -362,23 +363,26 @@ class Tap:
         return self
 
 
-def _libc() -> ctypes.CDLL:
+class _Timebase(ctypes.Structure):
+    _fields_ = [("numer", ctypes.c_uint32), ("denom", ctypes.c_uint32)]
+
+
+def _mach() -> tuple[ctypes.CDLL, float]:
+    """mach_absolute_time ticks are not nanoseconds. numer/denom converts;
+    it is 1/1 on Intel but 125/3 on Apple Silicon, where dividing by 1e9
+    runs the clock 41x slow."""
     libc = _framework("System")
     libc.mach_absolute_time.restype = ctypes.c_uint64
     libc.mach_absolute_time.argtypes = ()
-    return libc
+    info = _Timebase()
+    libc.mach_timebase_info(ctypes.byref(info))
+    return libc, info.numer / info.denom
 
 
-def clock(libc) -> float:
-    """Stream time in seconds, on the same mach timebase that
-    CGEventGetTimestamp stamps events with. Never time.time(): see the
-    module docstring.
-
-    Read straight from mach_absolute_time rather than by manufacturing an
-    event to inspect -- pump calls this on every idle tick, and allocating a
-    CGEvent 200 times a second to throw it away would be absurd.
-    """
-    return libc.mach_absolute_time() / 1_000_000_000.0
+def clock(libc, scale: float) -> float:
+    """Stream time in seconds, on the same timebase CGEventGetTimestamp
+    stamps events with (which really is nanoseconds). Never time.time()."""
+    return libc.mach_absolute_time() * scale / 1_000_000_000.0
 
 
 def events(tap: Tap, tick: float) -> Iterator[Edge | None]:
@@ -408,9 +412,9 @@ def open_input(settings, **_) -> Input:
     name = settings.key or DEFAULT_KEY
     key = resolve_key(name)
     tap = Tap(key).start()
-    libc = _libc()
+    libc, scale = _mach()
     return Input(events(tap, TICK), Sink(tap.cg, tap.cf, tap.source), key,
-                 lambda: clock(libc),
+                 lambda: clock(libc, scale),
                  settings.timing,
                  f"metamorse: {name} tapped, "
                  f"unit={settings.timing.unit*1000:.0f}ms")
