@@ -126,18 +126,20 @@ def _monitors() -> list[tuple[int, int, int, int]]:
                                 r"(\d+)x(\d+)\+(\d+)\+(\d+)", out)]
 
 
-def _monitor(root) -> tuple[int, int, int, int]:
+def _monitor(root, monitors) -> tuple[int, int, int, int]:
     """The monitor under the pointer, as (x, y, w, h).
 
     tk's winfo_screenwidth/height report the whole virtual desktop, so on a
     multi-head layout centring by them puts the window in the bounding box's
     middle -- which is off every physical panel when the heads differ in size
     or are stacked. Falling back to that box is still right for one monitor.
+
+    `monitors` is read once at startup: xrandr costs half a second, which is
+    far too slow to pay per keystroke, and the layout does not change between
+    them. The pointer is still read every time, so the popup follows you.
     """
-    whole = (0, 0, root.winfo_screenwidth(), root.winfo_screenheight())
-    monitors = _monitors()
     if not monitors:
-        return whole
+        return 0, 0, root.winfo_screenwidth(), root.winfo_screenheight()
     px, py = root.winfo_pointerx(), root.winfo_pointery()
     for x, y, w, h in monitors:
         if x <= px < x + w and y <= py < y + h:
@@ -169,6 +171,7 @@ def main() -> int:
     OFFSCREEN = 32000
     root.geometry(f"+{OFFSCREEN}+{OFFSCREEN}")
     shown = {"at": None}
+    monitors = _monitors()          # xrandr once: ~0.5s, never per keystroke
 
     def place() -> None:
         """Centre on the monitor holding the pointer, recomputing size only
@@ -176,7 +179,7 @@ def main() -> int:
         process's biggest cost."""
         root.update_idletasks()
         size = (root.winfo_width(), root.winfo_height())
-        mx, my, mw, mh = _monitor(root)
+        mx, my, mw, mh = _monitor(root, monitors)
         x = mx + (mw - size[0]) // 2
         y = my + int(mh * 0.70) - size[1] // 2
         if shown["at"] != (x, y):
