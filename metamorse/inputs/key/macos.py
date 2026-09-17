@@ -23,7 +23,10 @@ untouched.
 
 RE-ENTRANCY.  Events from CGEventPost come back through our own tap. They
 are tagged with a source state ID, and ours are skipped unread -- the
-counterpart of LLKHF_INJECTED on Windows.
+counterpart of LLKHF_INJECTED on Windows. That only distinguishes anything
+if the source is a *private* one: the HID source shares its state ID with
+every physical keypress, so injecting from it makes the guard true for the
+whole keyboard and the tap reads nothing at all.
 
 TIMEBASE.  CGEventGetTimestamp is mach absolute time in nanoseconds, and
 Demod requires edges and idle ticks on one clock, so that is the clock.
@@ -74,6 +77,12 @@ DEFAULT_TAP = 0                # active tap: it may alter or swallow events
 EVENT_MASK = (1 << KEY_DOWN) | (1 << KEY_UP) | (1 << FLAGS_CHANGED)
 
 HID_SYSTEM_STATE = 1           # kCGEventSourceStateHIDSystemState
+PRIVATE_STATE = -1             # kCGEventSourceStatePrivate
+
+# Injection uses a *private* source so its state ID is unique. The HID source
+# shares state ID 1 with every physical keypress, so tagging our own events
+# with it makes `_is_ours` true for the whole keyboard and the tap silently
+# drops everything it was installed to read.
 
 # Virtual keycodes. Positional, not ASCII -- kVK_ANSI_A is 0 because of where
 # the key sits, so unlike Windows there is no ord() shortcut and the whole
@@ -175,7 +184,7 @@ def _quartz():
     cg.CGEventSetFlags.argtypes = (ctypes.c_void_p, ctypes.c_uint64)
     cg.CGEventPost.argtypes = (ctypes.c_uint32, ctypes.c_void_p)
     cg.CGEventSourceCreate.restype = ctypes.c_void_p
-    cg.CGEventSourceCreate.argtypes = (ctypes.c_uint32,)
+    cg.CGEventSourceCreate.argtypes = (ctypes.c_int32,)
     cg.CGEventSourceGetSourceStateID.restype = ctypes.c_int32
     cg.CGEventSourceGetSourceStateID.argtypes = (ctypes.c_void_p,)
 
@@ -189,6 +198,20 @@ def _quartz():
     cf.CFRelease.argtypes = (ctypes.c_void_p,)
     cf.CFRunLoopRun.argtypes = ()
     return cg, cf
+
+
+def _common_modes(cf: ctypes.CDLL) -> ctypes.c_void_p:
+    """The kCFRunLoopCommonModes constant.
+
+    It is an exported CFStringRef, so the value wanted is the pointer stored
+    in the variable, not its address -- `in_dll` on c_void_p reads exactly
+    that. Passing the wrong one attaches the source to no mode at all, and a
+    tap on no mode is installed, enabled and never called.
+    """
+    try:
+        return ctypes.c_void_p.in_dll(cf, "kCFRunLoopCommonModes")
+    except ValueError as exc:
+        raise OSError(f"kCFRunLoopCommonModes is not exported: {exc}") from exc
 
 
 def _trusted() -> bool:
@@ -256,7 +279,8 @@ class Tap:
         self._proc = TAPPROC(self._callback)      # kept alive deliberately
         self._ready = threading.Event()
         self._tap = None
-        self.source = self.cg.CGEventSourceCreate(HID_SYSTEM_STATE)
+        self._failure: Exception | None = None
+        self.source = self.cg.CGEventSourceCreate(PRIVATE_STATE)
         self._our_state = self.cg.CGEventSourceGetSourceStateID(self.source)
 
     def _callback(self, proxy, kind, event, refcon):
@@ -295,26 +319,43 @@ class Tap:
             return bool(flags & self.modifier_flag)
         return None
 
-    def _pump(self) -> None:
+    def _attach(self) -> None:
+        """Create the tap and wire it to this thread's runloop.
+
+        Every step is load-bearing and any of them can fail, so this runs to
+        completion before `start` is released -- a half-attached tap is the
+        failure that looks exactly like working software.
+        """
         self._tap = self.cg.CGEventTapCreate(HID_EVENT_TAP, HEAD_INSERT,
                                              DEFAULT_TAP, EVENT_MASK,
                                              self._proc, None)
-        self._ready.set()
         if not self._tap:
-            return
-        loop = self.cf.CFMachPortCreateRunLoopSource(None, self._tap, 0)
-        self.cf.CFRunLoopAddSource(self.cf.CFRunLoopGetCurrent(), loop,
-                                   ctypes.c_void_p.in_dll(self.cf,
-                                                          "kCFRunLoopCommonModes"))
+            raise OSError("CGEventTapCreate returned NULL")
+        source = self.cf.CFMachPortCreateRunLoopSource(None, self._tap, 0)
+        if not source:
+            raise OSError("CFMachPortCreateRunLoopSource returned NULL")
+        self.cf.CFRunLoopAddSource(self.cf.CFRunLoopGetCurrent(), source,
+                                   _common_modes(self.cf))
+        self.cf.CFRelease(source)
         self.cg.CGEventTapEnable(self._tap, True)
+
+    def _pump(self) -> None:
+        try:
+            self._attach()
+        except Exception as exc:                  # reported by `start`
+            self._failure = exc
+            return
+        finally:
+            self._ready.set()
         self.cf.CFRunLoopRun()
 
     def start(self) -> Tap:
         threading.Thread(target=self._pump, daemon=True).start()
-        self._ready.wait(timeout=5.0)
-        if not self._tap:
+        if not self._ready.wait(timeout=5.0):
+            raise SystemExit("the event tap thread did not start.")
+        if self._failure is not None:
             raise SystemExit(
-                "could not create the event tap.\n"
+                f"could not install the event tap: {self._failure}\n"
                 "Grant Accessibility to this program: System Settings > "
                 "Privacy & Security > Accessibility."
             )

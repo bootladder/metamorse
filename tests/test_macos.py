@@ -6,10 +6,9 @@ are positional rather than ASCII, so the whole table is transcribed by hand
 and a transposed digit would silently bind the wrong key.
 """
 import unittest
-from pathlib import Path
 
+import shipped
 from metamorse.core.dispatch import parse_chord
-from metamorse.core.keymap import Action, load
 from metamorse.inputs.key import macos
 
 
@@ -73,6 +72,19 @@ class TestModifiers(unittest.TestCase):
                              f"{left}/{right}")
 
 
+class TestInjectionSource(unittest.TestCase):
+    """The re-entrancy guard compares source state IDs, so the source we
+    inject from must not be the one physical keys come from."""
+
+    def test_injects_from_a_private_source(self):
+        self.assertEqual(macos.PRIVATE_STATE, -1)
+
+    def test_private_state_is_not_the_hid_state(self):
+        """Sharing it makes `_is_ours` true for every real keypress: the tap
+        installs, enables, and silently reads nothing."""
+        self.assertNotEqual(macos.PRIVATE_STATE, macos.HID_SYSTEM_STATE)
+
+
 class TestChordInterop(unittest.TestCase):
     """`parse_chord` is platform-independent; what it yields must resolve."""
 
@@ -87,20 +99,13 @@ class TestChordInterop(unittest.TestCase):
         self.assertEqual([macos.resolve_key(m) for m in mods], [0x37])
         self.assertEqual(macos.resolve_key(key), 0x08)
 
-    def test_shipped_keymap_chords_resolve(self):
-        share = Path(__file__).resolve().parent.parent / "share" / "keymap.toml"
-
-        def walk(node):
-            for child in node.children.values():
-                if isinstance(child, Action):
-                    if child.kind == "key":
-                        mods, key = parse_chord(child.arg)
-                        for name in (*mods, key):
-                            macos.resolve_key(name)
-                else:
-                    walk(child)
-
-        walk(load(share))
+    def test_shipped_macos_keymap_chords_resolve(self):
+        """The map macOS actually installs. A chord it cannot name would
+        ship broken and nothing else would report it."""
+        for chord in shipped.chords(shipped.keymap("macos")):
+            mods, key = parse_chord(chord)
+            for name in (*mods, key):
+                macos.resolve_key(name)
 
 
 if __name__ == "__main__":
