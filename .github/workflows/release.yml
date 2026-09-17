@@ -78,9 +78,15 @@ jobs:
       - run: pip install pyinstaller
       - run: pyinstaller packaging/metamorse-macos.spec
       - name: smoke test
+        # doctor exits non-zero on a runner -- no session ever grants
+        # Accessibility -- so what is asserted is that it got far enough to
+        # ask. Reaching that check imports the backend, which is the proof
+        # that the bundle actually contains it.
         run: |
           ./dist/metamorse install
           ./dist/metamorse keys
+          ./dist/metamorse doctor || true
+          ./dist/metamorse doctor | grep -q Accessibility
       - name: name it for the release
         # Both platforms build a file called `metamorse`; the release needs
         # distinguishable names.

@@ -73,6 +73,19 @@ class TestModifiers(unittest.TestCase):
                              f"{left}/{right}")
 
 
+class TestInjectionSource(unittest.TestCase):
+    """The re-entrancy guard compares source state IDs, so the source we
+    inject from must not be the one physical keys come from."""
+
+    def test_injects_from_a_private_source(self):
+        self.assertEqual(macos.PRIVATE_STATE, -1)
+
+    def test_private_state_is_not_the_hid_state(self):
+        """Sharing it makes `_is_ours` true for every real keypress: the tap
+        installs, enables, and silently reads nothing."""
+        self.assertNotEqual(macos.PRIVATE_STATE, macos.HID_SYSTEM_STATE)
+
+
 class TestChordInterop(unittest.TestCase):
     """`parse_chord` is platform-independent; what it yields must resolve."""
 

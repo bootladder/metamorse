@@ -6,11 +6,6 @@
 # computed name, which PyInstaller's static analysis cannot follow. See
 # metamorse.spec for the full explanation.
 #
-# There is no macOS key backend yet, so what this builds is the CLI: doctor,
-# keys, install and the pure core. `run` will exit saying darwin has no
-# backend. Building it anyway is what keeps the packaging honest -- the spec
-# and the workflow are proven before the backend lands, not after.
-#
 # NO .app BUNDLE, deliberately. metamorse is a console program -- doctor,
 # keys and tap all print to a terminal -- and a windowed .app has no stdout
 # to print to. A plain binary is also what a Homebrew-shaped install wants.
@@ -27,9 +22,11 @@ a = Analysis(
     ["../metamorse/__main__.py"],
     pathex=[ROOT],
     binaries=[],
-    datas=[("../share/keymap.toml", "share")],
+    datas=[("../share/keymap-macos.toml", "share"),
+           ("../share/metamorse-macos.toml", "share")],
     hiddenimports=[
         "metamorse.inputs.key",
+        "metamorse.inputs.key.macos",
         "metamorse.ui.osd",
     ],
     hookspath=[],
