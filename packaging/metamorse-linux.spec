@@ -29,7 +29,8 @@ a = Analysis(
     ["../metamorse/__main__.py"],
     pathex=[ROOT],
     binaries=collect_dynamic_libs("evdev"),
-    datas=[("../share/keymap.toml", "share")],
+    datas=[("../share/keymap.toml", "share"),
+           ("../share/metamorse.toml", "share")],
     hiddenimports=[
         "metamorse.inputs.key",
         "metamorse.inputs.key.linux",

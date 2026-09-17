@@ -30,6 +30,8 @@ jobs:
         run: |
           dist\metamorse.exe install
           dist\metamorse.exe keys
+          if (-not (Test-Path "$env:USERPROFILE\.config\metamorse\keymap.toml")) { exit 1 }
+          if (-not (Test-Path "$env:USERPROFILE\.config\metamorse\metamorse.toml")) { exit 1 }
       - uses: actions/upload-artifact@v4
         with:
           name: release-windows
@@ -59,6 +61,8 @@ jobs:
         run: |
           ./dist/metamorse install
           ./dist/metamorse keys
+          test -f ~/.config/metamorse/keymap.toml
+          test -f ~/.config/metamorse/metamorse.toml
           ./dist/metamorse doctor || true
           ./dist/metamorse doctor | grep -q evdev
       - name: name it for the release
@@ -85,6 +89,9 @@ jobs:
         run: |
           ./dist/metamorse install
           ./dist/metamorse keys
+          test -f ~/.config/metamorse/keymap.toml
+          test -f ~/.config/metamorse/metamorse.toml
+          grep -q "open -a Terminal" ~/.config/metamorse/keymap.toml
           ./dist/metamorse doctor || true
           ./dist/metamorse doctor | grep -q Accessibility
       - name: name it for the release

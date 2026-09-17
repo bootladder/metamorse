@@ -41,6 +41,38 @@ class TestDispatcher(unittest.TestCase):
         self.assertEqual((self.ran, self.synthed), ([], []))
 
 
+class TestShippedDefaults(unittest.TestCase):
+    """What `install` lays down on a fresh machine. The release binary is the
+    product, so these files must work with no editing."""
+
+    SHARE = Path(__file__).resolve().parent.parent / "share"
+    PLATFORMS = ("", "-darwin", "-win32")      # "" is the generic/Linux pair
+
+    def test_every_shipped_keymap_leaves_e_unbound(self):
+        for suffix in self.PLATFORMS:
+            with self.subTest(suffix or "generic"):
+                trie = load(self.SHARE / f"keymap{suffix}.toml")
+                self.assertNotIn("e", trie.children)
+
+    def test_every_shipped_settings_file_is_pure_defaults(self):
+        """They ship fully commented out, so loading one must give exactly
+        the built-in defaults."""
+        baseline = config.Settings.load(Path("/nonexistent"))
+        for suffix in self.PLATFORMS:
+            with self.subTest(suffix or "generic"):
+                path = self.SHARE / f"metamorse{suffix}.toml"
+                self.assertTrue(path.exists(), path)
+                self.assertEqual(config.Settings.load(path), baseline)
+
+    def test_install_ships_a_pair_for_every_platform(self):
+        """A keymap without its settings file, or vice versa, means `install`
+        writes a half-configured machine."""
+        for suffix in self.PLATFORMS:
+            with self.subTest(suffix or "generic"):
+                self.assertTrue((self.SHARE / f"keymap{suffix}.toml").exists())
+                self.assertTrue((self.SHARE / f"metamorse{suffix}.toml").exists())
+
+
 class TestShippedKeymap(unittest.TestCase):
     """The default keymap must parse and must not bind 'e'."""
 

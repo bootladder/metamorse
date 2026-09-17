@@ -65,8 +65,9 @@ FOOTPRINT -- everything this touches:
      A 3-line launcher pointing at this checkout. Nothing is copied;
      the code stays in $SRC
 
-  2. $CONFIG/keymap.toml
-     Your keymap. Written only if absent -- yours is never overwritten.
+  2. $CONFIG/keymap.toml and $CONFIG/metamorse.toml
+     Your keymap and daemon settings. Written only if absent -- yours are
+     never overwritten.
 
   3. $RULE
      Grants the 'input' group access to /dev/uinput, needed to replay the
@@ -100,12 +101,14 @@ say "installed $BIN"
 
 # 2. config
 mkdir -p "$CONFIG"
-if [ -f "$CONFIG/keymap.toml" ]; then
-    say "kept existing $CONFIG/keymap.toml"
-else
-    cp "$SRC/share/keymap.toml" "$CONFIG/keymap.toml"
-    say "wrote $CONFIG/keymap.toml"
-fi
+for f in keymap metamorse; do
+    if [ -f "$CONFIG/$f.toml" ]; then
+        say "kept existing $CONFIG/$f.toml"
+    else
+        cp "$SRC/share/$f.toml" "$CONFIG/$f.toml"
+        say "wrote $CONFIG/$f.toml"
+    fi
+done
 
 # 3. udev rule
 if [ -w /dev/uinput ]; then

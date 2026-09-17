@@ -37,25 +37,33 @@ RUNTIME_FOOTPRINT = {
 }
 
 
-def _default_keymap() -> Path:
-    """The shipped keymap for this platform, falling back to the generic one.
+def _shipped(name: str) -> Path:
+    """The shipped `name`.toml for this platform, falling back to the generic
+    one. Both halves are platform vocabulary -- `open -a Terminal` means
+    nothing on Linux, and evdev's `leftmeta` means nothing to Windows -- so
+    one file for everyone installs commands that are not there and key names
+    that do not resolve."""
+    candidate = SHARE / f"{name}-{sys.platform}.toml"
+    return candidate if candidate.exists() else SHARE / f"{name}.toml"
 
-    The commands in a keymap are platform vocabulary -- `open -a Terminal`
-    means nothing on Linux -- so shipping one file for everyone dispatches
-    programs that are not installed and looks like nothing happened."""
-    candidate = SHARE / f"keymap-{sys.platform}.toml"
-    return candidate if candidate.exists() else SHARE / "keymap.toml"
+
+def _install(name: str, target: Path, force: bool) -> None:
+    """Copy one shipped default into place. Never overwrites without --force:
+    these are the files the user edits."""
+    if target.exists() and not force:
+        print(f"{target.name} already exists: {target}  (--force to overwrite)")
+        return
+    shutil.copy(_shipped(name), target)
+    print(f"wrote {target}")
 
 
 def cmd_install(args) -> int:
-    """Writes the keymap. It installs nothing else -- the binary runs from
-    wherever it sits, and nothing is copied or added to PATH."""
+    """Writes the keymap and the settings file -- everything needed to run.
+    It installs nothing else: the binary runs from wherever it sits, and
+    nothing is copied or added to PATH."""
     config.CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    if config.KEYMAP.exists() and not args.force:
-        print(f"keymap already exists: {config.KEYMAP}  (--force to overwrite)")
-    else:
-        shutil.copy(_default_keymap(), config.KEYMAP)
-        print(f"wrote {config.KEYMAP}")
+    _install("keymap", config.KEYMAP, args.force)
+    _install("metamorse", config.SETTINGS, args.force)
     print("\nfootprint:")
     print(f"  config   {config.CONFIG_DIR}/")
     print("  code     this directory (nothing installed system-wide)")
