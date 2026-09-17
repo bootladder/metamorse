@@ -28,11 +28,11 @@ if the source is a *private* one: the HID source shares its state ID with
 every physical keypress, so injecting from it makes the guard true for the
 whole keyboard and the tap reads nothing at all.
 
-TIMEBASE.  CGEventGetTimestamp is nanoseconds, and Demod requires edges and
-idle ticks on one clock, so that is the clock. mach_absolute_time is the
-cheap way to read it for idle ticks, but its ticks are NOT nanoseconds --
-scale by mach_timebase_info or the clock runs 41x slow on Apple Silicon and
-every idle tick reports a word gap.
+TIMEBASE.  CGEventGetTimestamp and mach_absolute_time both return mach
+absolute ticks, which are NOT nanoseconds: the timebase is 1/1 on Intel but
+125/3 on Apple Silicon. Demod compares edge stamps against idle ticks
+directly, so both are scaled by mach_timebase_info. Scaling one and not the
+other leaves them 41x apart and every idle tick reports a word gap.
 
 ACCESSIBILITY.  A tap that is not trusted installs and then silently
 delivers nothing, so `open_input` checks first and says so rather than
@@ -272,8 +272,9 @@ class Tap:
     the documented recovery and the reason that branch exists.
     """
 
-    def __init__(self, key: int) -> None:
+    def __init__(self, key: int, scale: float = 1.0) -> None:
         self.key = key
+        self.scale = scale          # mach ticks -> nanoseconds
         self.modifier_flag = MODIFIER_FLAGS.get(key)
         self.edges: queue.Queue[Edge] = queue.Queue()
         self.cg, self.cf = _quartz()
@@ -296,7 +297,8 @@ class Tap:
         down = self._down(kind, event)
         if down is None:
             return event
-        stamp = self.cg.CGEventGetTimestamp(event) / 1_000_000_000.0
+        stamp = (self.cg.CGEventGetTimestamp(event) * self.scale
+                 / 1_000_000_000.0)
         self.edges.put(Edge(down, stamp))
         return None                               # swallow: we replay it
 
@@ -374,6 +376,8 @@ def _mach() -> tuple[ctypes.CDLL, float]:
     libc = _framework("System")
     libc.mach_absolute_time.restype = ctypes.c_uint64
     libc.mach_absolute_time.argtypes = ()
+    libc.mach_timebase_info.restype = ctypes.c_int
+    libc.mach_timebase_info.argtypes = (ctypes.POINTER(_Timebase),)
     info = _Timebase()
     libc.mach_timebase_info(ctypes.byref(info))
     return libc, info.numer / info.denom
@@ -411,8 +415,8 @@ def open_input(settings, **_) -> Input:
         )
     name = settings.key or DEFAULT_KEY
     key = resolve_key(name)
-    tap = Tap(key).start()
     libc, scale = _mach()
+    tap = Tap(key, scale).start()
     return Input(events(tap, TICK), Sink(tap.cg, tap.cf, tap.source), key,
                  lambda: clock(libc, scale),
                  settings.timing,

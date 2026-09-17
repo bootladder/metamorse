@@ -22,7 +22,8 @@ a = Analysis(
     ["../metamorse/__main__.py"],
     pathex=[ROOT],
     binaries=[],
-    datas=[("../share/keymap.toml", "share")],
+    datas=[("../share/keymap.toml", "share"),
+           ("../share/keymap-darwin.toml", "share")],
     hiddenimports=[
         "metamorse.inputs.key",
         "metamorse.inputs.key.macos",

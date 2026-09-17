@@ -1,0 +1,43 @@
+# metamorse keymap -- macOS. Paths are space-separated Morse letters.
+#
+#   { sh  = "..." }   run a shell command, detached
+#   { key = "..." }   synthesize a chord, e.g. "cmd+shift+4"
+#   { hint = "..." }  label a branch (a prefix with no action of its own)
+#
+# TWO SPECIAL LETTERS
+#   e  (.)  a bare Meta tap. Permanently unbound so the tap passes through to
+#           whatever has focus. Never bind it.
+#   t  (-)  the gesture you hit by accident. Auto-bound to a popup listing
+#           every binding, so an accidental trigger costs nothing.
+#
+# COST -- spend short codes on what you use most
+#   2  i(..)  a(.-)  n(-.)  m(--)
+#   3  s(...) u(..-) r(.-.) w(.--) d(-..) k(-.-) g(--.) o(---)
+#   4  h v f l p j b x c y z q
+#
+# Everything here ships with macOS. Edit it: metamorse edit
+
+"a" = { sh = "open -a Terminal", hint = "terminal" }
+"n" = { sh = "open -a Safari", hint = "browser" }
+"i" = { sh = "open ~", hint = "finder" }
+
+"s" = { key = "cmd+shift+4", hint = "screenshot region" }
+"o" = { key = "cmd+space", hint = "spotlight" }
+
+"m"   = { hint = "media & sound" }
+"m u" = { sh = "osascript -e 'set volume output volume (output volume of (get volume settings) + 10)'", hint = "volume up" }
+"m d" = { sh = "osascript -e 'set volume output volume (output volume of (get volume settings) - 10)'", hint = "volume down" }
+"m t" = { sh = "osascript -e 'set volume with output muted'", hint = "mute" }
+
+"w"   = { hint = "window" }
+"w c" = { key = "cmd+w", hint = "close" }
+"w n" = { key = "cmd+m", hint = "minimize" }
+"w f" = { key = "cmd+ctrl+f", hint = "fullscreen" }
+
+"u"   = { hint = "urls" }
+"u g" = { sh = "open https://github.com", hint = "github" }
+"u c" = { sh = "open https://claude.ai", hint = "claude" }
+
+"d"   = { hint = "desktop & system" }
+"d d" = { sh = "open -b com.apple.systempreferences", hint = "settings" }
+"d t" = { sh = "open -a 'Activity Monitor'", hint = "activity monitor" }

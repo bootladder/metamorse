@@ -37,6 +37,16 @@ RUNTIME_FOOTPRINT = {
 }
 
 
+def _default_keymap() -> Path:
+    """The shipped keymap for this platform, falling back to the generic one.
+
+    The commands in a keymap are platform vocabulary -- `open -a Terminal`
+    means nothing on Linux -- so shipping one file for everyone dispatches
+    programs that are not installed and looks like nothing happened."""
+    candidate = SHARE / f"keymap-{sys.platform}.toml"
+    return candidate if candidate.exists() else SHARE / "keymap.toml"
+
+
 def cmd_install(args) -> int:
     """Writes the keymap. It installs nothing else -- the binary runs from
     wherever it sits, and nothing is copied or added to PATH."""
@@ -44,7 +54,7 @@ def cmd_install(args) -> int:
     if config.KEYMAP.exists() and not args.force:
         print(f"keymap already exists: {config.KEYMAP}  (--force to overwrite)")
     else:
-        shutil.copy(SHARE / "keymap.toml", config.KEYMAP)
+        shutil.copy(_default_keymap(), config.KEYMAP)
         print(f"wrote {config.KEYMAP}")
     print("\nfootprint:")
     print(f"  config   {config.CONFIG_DIR}/")

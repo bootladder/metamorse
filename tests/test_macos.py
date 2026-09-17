@@ -99,6 +99,18 @@ class TestClock(unittest.TestCase):
                 return 24_000_000          # one second of 24MHz ticks
         self.assertAlmostEqual(macos.clock(Libc(), 125 / 3), 1.0, places=6)
 
+    def test_tap_stamps_share_the_clock_scale(self):
+        """CGEventGetTimestamp returns ticks too, so the Tap must apply the
+        same scale. Scaling one side only leaves them 41x apart, which is the
+        word-gap flood all over again."""
+        tap = macos.Tap.__new__(macos.Tap)
+        tap.scale = 125 / 3
+        stamp = 24_000_000 * tap.scale / 1_000_000_000.0
+        class Libc:
+            def mach_absolute_time(self):
+                return 24_000_000
+        self.assertAlmostEqual(stamp, macos.clock(Libc(), tap.scale), places=9)
+
     def test_intel_timebase_is_identity(self):
         class Libc:
             def mach_absolute_time(self):
