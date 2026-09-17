@@ -1,0 +1,36 @@
+# metamorse daemon settings -- macOS.
+# Every value shown is the default. Uncomment to change.
+
+# KEY -- which key carries the Morse. Spell it as one of:
+#
+#   rcommand      right Command                          <- default
+#   lcommand      left Command. Runs the whole platform; expect a fight.
+#   capslock      the other good answer
+#   rctrl lctrl rshift lshift ralt lalt fn
+#   f1 .. f20     f13 and up are unbound on most keyboards
+#   escape tab space enter backspace delete
+#   left right up down home end pageup pagedown
+#   a .. z   0 .. 9
+#
+# Aliases: cmd/command/super/meta/win -> lcommand, rcmd -> rcommand,
+#          ctrl/control -> lctrl, shift -> lshift, alt/option/opt -> lalt,
+#          esc -> escape, ret -> enter
+#
+# Note super/meta mean the LEFT Command key. Say "rcommand" for the right.
+#
+#key = "rcommand"
+
+# unit -- length of a dot, seconds. Dash 3u, letter gap 3u, word gap 7u.
+# Tolerates ~±30% jitter; raise it if you misfire. Tune with `metamorse tap`.
+#unit = 0.09
+
+# hold -- how long a half-typed sequence ("g ...") waits for its next letter.
+# Not Morse timing: the 7u word gap is far too brisk for deciding what to hit.
+#hold = 10.0
+
+# immediate -- release Meta-up as it happens instead of when the letter
+# resolves. Only wanted if something binds a bare press of your key.
+#immediate = false
+
+# input -- "key" is the meta key, and on macOS the only one (tone is Linux).
+#input = "key"

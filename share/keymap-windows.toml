@@ -1,0 +1,31 @@
+# metamorse keymap -- Windows defaults.
+#
+# Paths are space-separated Morse letters.
+#
+#   { sh  = "..." }   run a shell command, detached
+#   { key = "..." }   synthesize a chord, e.g. "ctrl+shift+esc"
+#   { hint = "..." }  label a branch (a prefix with no action of its own)
+#
+# TWO SPECIAL LETTERS
+#   e  (.)  a bare Meta tap. Permanently unbound so the tap passes through to
+#           whatever has focus. Never bind it.
+#   t  (-)  the gesture you hit by accident. Auto-bound to a popup listing
+#           every binding, so an accidental trigger costs nothing.
+#
+# COST -- spend short codes on what you use most
+#   2  i(..)  a(.-)  n(-.)  m(--)
+#   3  s(...) u(..-) r(.-.) w(.--) d(-..) k(-.-) g(--.) o(---)
+#   4  h v f l p j b x c y z q
+#
+# A starting point: everything here ships with Windows.
+# Replace with what you actually run -- `metamorse edit`.
+
+"a" = { sh = "cmd /c start powershell", hint = "powershell" }
+"n" = { sh = "cmd /c start https://duckduckgo.com", hint = "browser" }
+"i" = { sh = "cmd /c start explorer", hint = "explorer" }
+
+"s" = { key = "shift+lwin+s", hint = "screenshot region" }
+
+"u"   = { hint = "urls" }
+"u g" = { sh = "cmd /c start https://github.com", hint = "github" }
+"u c" = { sh = "cmd /c start https://claude.ai", hint = "claude" }

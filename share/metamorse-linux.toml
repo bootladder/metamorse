@@ -1,0 +1,37 @@
+# metamorse daemon settings -- Linux.
+# Every value shown is the default. Uncomment to change.
+
+# KEY -- which key carries the Morse. Resolved through evdev, so any KEY_*
+# name works; the prefix is optional and case is ignored ("leftmeta",
+# "LEFTMETA" and "KEY_LEFTMETA" are the same key).
+#
+#   leftmeta      left Windows/Command key               <- default
+#   rightmeta     the right one, if you have it
+#   capslock      the usual choice
+#   rightctrl rightalt rightshift   leftctrl leftalt leftshift
+#   f13 .. f24    unbound on most keyboards
+#   esc tab space enter backspace delete
+#   left right up down home end pageup pagedown
+#   a .. z   0 .. 9
+#
+# Full list:
+#   python3 -c "import evdev; print([k for k in evdev.ecodes.ecodes if k.startswith('KEY_')])"
+#
+#key = "leftmeta"
+
+# unit -- length of a dot, seconds. Dash 3u, letter gap 3u, word gap 7u.
+# Tolerates ~±30% jitter; raise it if you misfire. Tune with `metamorse tap`.
+#unit = 0.09
+
+# hold -- how long a half-typed sequence ("g ...") waits for its next letter.
+# Not Morse timing: the 7u word gap is far too brisk for deciding what to hit.
+#hold = 10.0
+
+# immediate -- release Meta-up as it happens instead of when the letter
+# resolves. Set true if your WM binds a bare Meta *press*; you will see the
+# overlay flicker during entry.
+#immediate = false
+
+# input -- "key" is the meta key; "tone" keys from a guitar or mic and needs
+# numpy and sounddevice (see `metamorse tune`).
+#input = "key"

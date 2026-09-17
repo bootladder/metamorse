@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 from . import config, doctor, service
+from .defaults import Default, defaults
 from .core import (Action, Branch, Demod, Dispatcher, NullObserver,
                    Passthrough, Session, load, parse_chord, pump, shell)
 from .inputs import open_input
@@ -37,15 +38,24 @@ RUNTIME_FOOTPRINT = {
 }
 
 
+def _install(default: Default, force: bool) -> None:
+    """Copy one shipped default into place. Never overwrites: these are the
+    files the user edits."""
+    if default.target.exists() and not force:
+        print(f"{default.label} already exists: {default.target}"
+              f"  (--force to overwrite)")
+        return
+    shutil.copy(SHARE / default.source, default.target)
+    print(f"wrote {default.target}")
+
+
 def cmd_install(args) -> int:
-    """Writes the keymap. It installs nothing else -- the binary runs from
-    wherever it sits, and nothing is copied or added to PATH."""
+    """Writes the keymap and the settings file. It installs nothing else --
+    the binary runs from wherever it sits, and nothing is copied or added to
+    PATH."""
     config.CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    if config.KEYMAP.exists() and not args.force:
-        print(f"keymap already exists: {config.KEYMAP}  (--force to overwrite)")
-    else:
-        shutil.copy(SHARE / "keymap.toml", config.KEYMAP)
-        print(f"wrote {config.KEYMAP}")
+    for default in defaults():
+        _install(default, args.force)
     print("\nfootprint:")
     print(f"  config   {config.CONFIG_DIR}/")
     print("  code     this directory (nothing installed system-wide)")

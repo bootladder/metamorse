@@ -6,10 +6,9 @@ Linux must resolve on Windows, and nothing else in the suite would catch a
 chord the backend cannot name.
 """
 import unittest
-from pathlib import Path
 
+import shipped
 from metamorse.core.dispatch import parse_chord
-from metamorse.core.keymap import Action, load
 from metamorse.inputs.key import windows
 
 
@@ -67,22 +66,13 @@ class TestChordInterop(unittest.TestCase):
         self.assertEqual([windows.resolve_key(m) for m in mods], [0x5B])
         self.assertEqual(windows.resolve_key(key), ord("C"))
 
-    def test_shipped_keymap_chords_resolve(self):
-        """Every `key` action in the default keymap must be nameable here,
-        or the shipped map is Linux-only in a way nothing else reports."""
-        share = Path(__file__).resolve().parent.parent / "share" / "keymap.toml"
-
-        def walk(node):
-            for child in node.children.values():
-                if isinstance(child, Action):
-                    if child.kind == "key":
-                        mods, key = parse_chord(child.arg)
-                        for name in (*mods, key):
-                            windows.resolve_key(name)
-                else:
-                    walk(child)
-
-        walk(load(share))
+    def test_shipped_windows_keymap_chords_resolve(self):
+        """Every `key` action in the map Windows installs must be nameable
+        here, or the shipped map ships broken."""
+        for chord in shipped.chords(shipped.keymap("windows")):
+            mods, key = parse_chord(chord)
+            for name in (*mods, key):
+                windows.resolve_key(name)
 
 
 if __name__ == "__main__":

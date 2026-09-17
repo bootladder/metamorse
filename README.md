@@ -19,7 +19,7 @@ run it:
 
     chmod +x metamorse-linux
     ./metamorse-linux doctor    what it needs; a fix printed for each failure
-    ./metamorse-linux install   write the default keymap
+    ./metamorse-linux install   write the default config
     ./metamorse-linux run       start it in this terminal
 
 It bundles evdev, so no distro packages and no checkout — but it still needs
@@ -41,6 +41,7 @@ It prints its full footprint and asks before each step. `--yes` to accept all,
 |---|---|
 | `~/.local/bin/metamorse` | 3-line launcher pointing at this checkout |
 | `~/.config/metamorse/keymap.toml` | your keymap; never overwritten |
+| `~/.config/metamorse/metamorse.toml` | daemon settings; never overwritten |
 | `~/.config/metamorse/tone.toml` | tone settings, if you use `tune` |
 | `~/.config/systemd/user/metamorse.service` | user unit, enabled to start with your graphical session (optional) |
 | `/etc/udev/rules.d/99-metamorse.rules` | `input` group access to `/dev/uinput` (sudo, optional) |
@@ -72,7 +73,7 @@ Download `metamorse.exe` from the latest release — a single file, no Python
 to install. Then, from the folder you put it in:
 
     metamorse.exe doctor    check it can run
-    metamorse.exe install   write the default keymap
+    metamorse.exe install   write the default config
     metamorse.exe edit      open that keymap in notepad
     metamorse.exe run       start it in this terminal
 
@@ -97,8 +98,9 @@ would rather not share, name another key:
     # %USERPROFILE%\.config\metamorse\metamorse.toml
     key = "capslock"
 
-The shipped keymap launches Linux programs, so it is a starting point to
-edit rather than something to use as-is.
+`install` also writes `metamorse.toml`, which ships as nothing but commented
+defaults -- it is where the key names are written down, so you do not have to
+remember whether it is `lwin` or `capslock`.
 
 **Not yet on Windows:** starting at login (no service equivalent of the
 systemd unit yet), and keying with a guitar — the tone input is Linux-only
@@ -115,7 +117,7 @@ Download the `metamorse-macos` build, then:
 
     chmod +x metamorse
     ./metamorse doctor     tells you what is missing, including permission
-    ./metamorse install    write the default keymap
+    ./metamorse install    write the default config
     ./metamorse run        start it in this terminal
 
 **Accessibility permission is required.** An event tap without it installs
@@ -134,8 +136,9 @@ does not set the flag. The binary is unsigned: signing it so *other* people
 avoid that prompt needs a paid Apple Developer ID, which this project does
 not have.
 
-The shipped keymap launches Linux programs, so it is a starting point to
-edit rather than something to use as-is.
+`install` also writes `metamorse.toml`, which ships as nothing but commented
+defaults -- it lists every key name this backend accepts, so `rcommand` and
+`capslock` do not have to be guessed.
 
 **Not yet on macOS:** starting at login, and keying with a guitar — the tone
 input is Linux-only on purpose.
@@ -167,7 +170,7 @@ a branch for the (not yet built) on-screen display.
 
     key = "leftmeta"    # any evdev key name; "capslock" is a common choice
     unit = 0.09         # seconds. dit=1u, dah=3u, char gap=3u, word gap=7u
-    hold = 2.0          # seconds to wait mid-sequence before giving up
+    hold = 10.0         # seconds to wait mid-sequence before giving up
     immediate = false   # release Meta-up instantly (see Timing)
 
 `~/.config/metamorse/tone.toml` — only if you key with a guitar. Written by

@@ -1,0 +1,38 @@
+# metamorse daemon settings -- Windows.
+# Every value shown is the default. Uncomment to change.
+
+# KEY -- which key carries the Morse. Spell it as one of:
+#
+#   lwin          left Windows key                       <- default
+#   rwin          the right one, if you have it
+#   capslock      the usual choice
+#   lctrl rctrl ctrl   lshift rshift shift   lalt ralt alt
+#   f1 .. f24     f13 and up are unbound on most keyboards
+#   esc tab space enter backspace delete
+#   left right up down home end pageup pagedown
+#   a .. z   0 .. 9
+#
+# Aliases: super/win/meta -> lwin, control -> ctrl, return -> enter,
+#          escape -> esc
+#
+# Windows binds lwin itself: a bare tap opens Start, Win+L and Win+G are the
+# shell's. metamorse replays the tap only when the gesture decodes to a bare
+# `e`, so Start still works -- but those chords stay Windows'. capslock
+# avoids the argument.
+#
+#key = "lwin"
+
+# unit -- length of a dot, seconds. Dash 3u, letter gap 3u, word gap 7u.
+# Tolerates ~±30% jitter; raise it if you misfire. Tune with `metamorse tap`.
+#unit = 0.09
+
+# hold -- how long a half-typed sequence ("g ...") waits for its next letter.
+# Not Morse timing: the 7u word gap is far too brisk for deciding what to hit.
+#hold = 10.0
+
+# immediate -- release Meta-up as it happens instead of when the letter
+# resolves. Only wanted if something binds a bare press of your key.
+#immediate = false
+
+# input -- "key" is the meta key, and on Windows the only one (tone is Linux).
+#input = "key"

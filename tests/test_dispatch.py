@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import shipped
 from metamorse import config
 from metamorse.core.dispatch import Dispatcher, parse_chord
 from metamorse.core.keymap import Action, load
@@ -41,37 +42,56 @@ class TestDispatcher(unittest.TestCase):
         self.assertEqual((self.ran, self.synthed), ([], []))
 
 
-class TestShippedKeymap(unittest.TestCase):
-    """The default keymap must parse and must not bind 'e'."""
-
-    def setUp(self):
-        share = Path(__file__).resolve().parent.parent / "share" / "keymap.toml"
-        self.trie = load(share)
+class TestShippedKeymaps(unittest.TestCase):
+    """Every platform's shipped keymap, checked the same way. These are what
+    `install` copies, so a broken one ships."""
 
     def test_parses(self):
-        self.assertIn("g", self.trie.children)
+        for platform in shipped.PLATFORMS:
+            with self.subTest(platform):
+                self.assertTrue(shipped.keymap(platform).children)
 
     def test_e_is_unbound(self):
-        self.assertNotIn("e", self.trie.children)
+        """The `e` contract: a bare tap must pass through."""
+        for platform in shipped.PLATFORMS:
+            with self.subTest(platform):
+                self.assertNotIn("e", shipped.keymap(platform).children)
 
     def test_every_action_is_valid(self):
-        def walk(node):
-            for child in node.children.values():
-                if isinstance(child, Action):
-                    self.assertIn(child.kind, ("sh", "key", "nop"))
-                    self.assertTrue(child.arg)
-                else:
-                    walk(child)
-        walk(self.trie)
+        for platform in shipped.PLATFORMS:
+            for action in shipped.actions(shipped.keymap(platform)):
+                with self.subTest(platform, arg=action.arg):
+                    self.assertIn(action.kind, ("sh", "key", "nop"))
+                    self.assertTrue(action.arg)
 
     def test_chords_parse(self):
-        def walk(node):
-            for child in node.children.values():
-                if isinstance(child, Action) and child.kind == "key":
-                    parse_chord(child.arg)
-                elif not isinstance(child, Action):
-                    walk(child)
-        walk(self.trie)
+        for platform in shipped.PLATFORMS:
+            for chord in shipped.chords(shipped.keymap(platform)):
+                with self.subTest(platform, chord=chord):
+                    parse_chord(chord)
+
+
+class TestShippedSettings(unittest.TestCase):
+    """Each metamorse.toml ships fully commented out, so loading one must
+    give exactly the built-in defaults -- otherwise the file is lying about
+    what it says it is."""
+
+    def test_matches_defaults(self):
+        baseline = config.Settings.load(Path("/nonexistent"))
+        for platform in shipped.PLATFORMS:
+            path = shipped.SHARE / f"metamorse-{platform}.toml"
+            with self.subTest(platform):
+                self.assertTrue(path.exists(), path)
+                self.assertEqual(config.Settings.load(path), baseline)
+
+    def test_names_the_backend_default_key(self):
+        """The commented `key =` must name that backend's own default, or it
+        documents a key metamorse does not actually use."""
+        expected = {"linux": "leftmeta", "windows": "lwin", "macos": "rcommand"}
+        for platform, key in expected.items():
+            path = shipped.SHARE / f"metamorse-{platform}.toml"
+            with self.subTest(platform):
+                self.assertIn(f'#key = "{key}"', path.read_text())
 
 
 class TestSettings(unittest.TestCase):
