@@ -13,6 +13,7 @@ from .core import (Action, Branch, Demod, Dispatcher, NullObserver,
                    Passthrough, Session, load, parse_chord, pump, shell)
 from .inputs import open_input
 from .ui.popup import OSD_FLAG
+from .version import version
 
 def _share() -> Path:
     """Where the default keymap ships.
@@ -105,6 +106,11 @@ def cmd_edit(args) -> int:
     except FileNotFoundError:
         print(f"could not run {command[0]!r}.\nedit it yourself: {config.KEYMAP}")
         return 1
+
+
+def cmd_version(args) -> int:
+    print(f"metamorse {version()}")
+    return 0
 
 
 def cmd_doctor(args) -> int:
@@ -234,6 +240,8 @@ def main(argv=None) -> int:
 
     subs.add_parser("doctor", help="check the system can run metamorse"
                     ).set_defaults(fn=cmd_doctor)
+    subs.add_parser("version", help="print the version"
+                    ).set_defaults(fn=cmd_version)
     subs.add_parser("keys", help="print the keymap").set_defaults(fn=cmd_keys)
     subs.add_parser("edit", help="open the keymap in an editor"
                     ).set_defaults(fn=cmd_edit)

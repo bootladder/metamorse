@@ -25,9 +25,11 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install pyinstaller
+      - run: python -m metamorse.version ${{ github.ref_name }}
       - run: pyinstaller packaging/metamorse.spec
       - name: smoke test
         run: |
+          dist\metamorse.exe version
           dist\metamorse.exe install
           dist\metamorse.exe keys
           if (-not (Test-Path "$env:USERPROFILE\.config\metamorse\keymap.toml")) { exit 1 }
@@ -53,12 +55,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential python3-dev libevdev-dev
           pip install pyinstaller evdev
+      - run: python -m metamorse.version ${{ github.ref_name }}
       - run: pyinstaller packaging/metamorse-linux.spec
       - name: smoke test
         # No keyboard or uinput on a runner, so `run` cannot be tested. That
         # evdev imports from inside the bundle is the thing worth proving:
         # without it this binary would be useless on a real machine.
         run: |
+          ./dist/metamorse version
           ./dist/metamorse install
           ./dist/metamorse keys
           test -f ~/.config/metamorse/keymap.toml
@@ -80,6 +84,7 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install pyinstaller
+      - run: python -m metamorse.version ${{ github.ref_name }}
       - run: pyinstaller packaging/metamorse-macos.spec
       - name: smoke test
         # doctor exits non-zero on a runner -- no session ever grants
@@ -87,6 +92,7 @@ jobs:
         # ask. Reaching that check imports the backend, which is the proof
         # that the bundle actually contains it.
         run: |
+          ./dist/metamorse version
           ./dist/metamorse install
           ./dist/metamorse keys
           test -f ~/.config/metamorse/keymap.toml
