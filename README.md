@@ -141,6 +141,7 @@ input is Linux-only on purpose.
     metamorse keys     print the keymap as a tree
     metamorse tap      decode to stdout, dispatching nothing — tune timing here
     metamorse run      start it in this terminal
+    metamorse version  the release tag, or `git describe` from a checkout
     metamorse logs     what the daemon under systemd is saying
 
 Start with `tap`. It shows what you're actually keying without running
