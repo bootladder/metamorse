@@ -30,6 +30,7 @@ a = Analysis(
         "metamorse.inputs.key",
         "metamorse.inputs.key.macos",
         "metamorse.ui.osd",
+        "metamorse.ui.aqua",
     ],
     hookspath=[],
     runtime_hooks=[],

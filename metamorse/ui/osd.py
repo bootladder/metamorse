@@ -147,6 +147,14 @@ def _monitor(root, monitors) -> tuple[int, int, int, int]:
     return monitors[0]
 
 
+def _pinner():
+    """Re-raise the window above others on show; only Aqua needs it."""
+    if sys.platform != "darwin":
+        return lambda: None
+    from .aqua import pinner
+    return pinner()
+
+
 def main() -> int:
     import queue as queuelib
     import threading
@@ -172,6 +180,8 @@ def main() -> int:
     root.geometry(f"+{OFFSCREEN}+{OFFSCREEN}")
     shown = {"at": None}
     monitors = _monitors()          # xrandr once: ~0.5s, never per keystroke
+    root.update()                   # NSWindow must exist before pinning
+    pin = _pinner()
 
     def place() -> None:
         """Centre on the monitor holding the pointer, recomputing size only
@@ -185,6 +195,7 @@ def main() -> int:
         if shown["at"] != (x, y):
             shown["at"] = (x, y)
             root.geometry(f"+{x}+{y}")
+            pin()
 
     def hide() -> None:
         if shown["at"] is not None:
