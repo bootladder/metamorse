@@ -8,6 +8,8 @@ BIN="$PREFIX/bin/metamorse"
 SRC="$(cd "$(dirname "$0")" && pwd)"
 CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/metamorse"
 RULE=/etc/udev/rules.d/99-metamorse.rules
+# static_node: applies at boot, before uinput is loaded (it autoloads on open)
+RULE_LINE='KERNEL=="uinput", GROUP="input", MODE="0660", OPTIONS+="static_node=uinput"'
 UNIT="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/metamorse.service"
 
 ASSUME_YES=${ASSUME_YES:-0}
@@ -111,10 +113,12 @@ for f in keymap metamorse; do
 done
 
 # 3. udev rule
-if [ -w /dev/uinput ]; then
+if grep -qxF "$RULE_LINE" "$RULE" 2>/dev/null; then
+    say "$RULE already current"
+elif [ -w /dev/uinput ] && [ ! -f "$RULE" ]; then
     say "/dev/uinput already writable -- skipping udev rule"
 elif ask "Install udev rule at $RULE? (needs sudo)"; then
-    if echo 'KERNEL=="uinput", GROUP="input", MODE="0660"' | sudo tee "$RULE" >/dev/null; then
+    if echo "$RULE_LINE" | sudo tee "$RULE" >/dev/null; then
         sudo udevadm control --reload-rules && sudo udevadm trigger
         sudo modprobe uinput 2>/dev/null || true
         say "installed $RULE"
