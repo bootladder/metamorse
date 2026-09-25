@@ -14,7 +14,7 @@ from typing import Iterator
 
 from . import config
 
-UDEV_RULE = 'KERNEL=="uinput", GROUP="input", MODE="0660"'
+UDEV_RULE = 'KERNEL=="uinput", GROUP="input", MODE="0660", OPTIONS+="static_node=uinput"'
 UDEV_PATH = "/etc/udev/rules.d/99-metamorse.rules"
 
 
